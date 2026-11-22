@@ -1,0 +1,150 @@
+/* patches — DOM-level glass polish.
+   Injected by the dsh-remielle-dan plugin (not by skin-center any more): it is
+   generated into styles/theme.css and removed when the plugin is disabled, so
+   every selector here is global (no body-attribute scoping). */
+
+[id="root"] {
+  background: none;
+}
+
+/* 靠上这一块原本铺着一条深色横带：composerSeat 的 :before 用
+   linear-gradient + backdrop-filter: blur(34px) 给输入区压了一层底。
+   作者要求「壁纸能看见到最底下」，所以整条去掉。
+   注意两点：
+     · 这条 :before 同时提供模糊，去掉后输入框背后的壁纸会变清晰（预期效果）；
+     · 下面的 background:none 要留着——那是宿主自己给 seat 画的底色。 */
+[data-phase="active"] [class*="composerSeat"] {
+  background: none !important;
+}
+
+/* ── 输入区改色：文字 + 边框（作者指定 #7B5AA3）─────────────────────────
+   为什么挂在 composerSeat 下而不是改 token：输入文字用的是全局正文色
+   （--dsw-alias-label-primary），改那个开关会把整个界面的字一起染色。
+   所以用「容器 + 内联元素」两层限定，只命中输入框自己。
+
+   文字：直接落在真正承载文本的元素上（textarea 或 contenteditable）。
+   边框：用 :has() 找「包着编辑区的那一张卡片」，给它上 border-color；
+        同时补一条 inset 阴影，兜住「原本用 box-shadow 当边框」的写法。 */
+/* 文字：作用域挂在输入卡片本身（data-composer-card），不用 [data-phase="active"]。
+   原因：data-phase 有三个值（settling / hero / active），新会话是 hero——
+   若挂 active，欢迎页那个大输入框里的字不会变色，发第一条消息时才突然变紫。
+   卡片在三种 phase 下都由同一个 InputBar 渲染，所以它才是稳定作用域。 */
+[data-composer-card] :is(textarea, input, [contenteditable="true"]) {
+  color: #7B5AA3 !important;
+  caret-color: #7B5AA3;
+}
+
+/* 边框：卡片源码里写着 border: 0 —— 那条细线其实是 elevation 系统的发丝描边，
+   颜色由 --dsw-elevation-stroke-color 决定。改 border-color 不会有任何效果
+   （没有 border 宽度可画）。
+   [data-composer-card] 是 DSH 源码里的稳定属性（InputBar.tsx），
+   不受 CSS Modules 哈希影响，也不随类名重构而变。
+   依据：packages/client/ui-conversation/src/client/skeleton/InputBar.module.css
+   的 .card 规则（border:0 / border-radius: var(--dsw-radius-panel) /
+   --dsw-elevation-stroke-color: var(--dsw-alias-border-l2)）。 */
+[data-composer-card] {
+  /* 保留原来的描边变量（有些 elevation 层仍会读它），同时接管整条 box-shadow。 */
+  --dsw-elevation-stroke-color: #7B5AA3 !important;
+
+  /* 三层叠加，顺序不能乱（先写的在上层）：
+       1. 1.5px 实心描边——border:0 的卡片只能靠外扩阴影画边；
+       2. 紫色光晕——负 spread 让边缘收进去，避免糊成一团；
+       3. 原有柔和投影，用主题自己的 lv2 代，避免引用可能不存在的宿主变量。 */
+  box-shadow:
+    0 0 0 1.5px #7B5AA3,
+    0 0 20px -4px rgba(123, 90, 163, 0.65),
+    var(--dsw-shadow-lv2) !important;
+}
+
+:focus-visible {
+  outline: 2px solid rgba(103, 220, 231, 0.7);
+  outline-offset: 2px;
+}
+
+a {
+  color: #67DCE7;
+}
+
+a:hover {
+  color: #86e2ea;
+  text-decoration: underline;
+}
+
+a:visited {
+  color: #b18df0;
+}
+
+/* Floating glass surfaces: frosted blur, inner highlight, diffuse shadow. */
+[role="dialog"],
+[role="menu"],
+[role="listbox"],
+[data-gitgraph-dialog] {
+  -webkit-backdrop-filter: blur(30px) saturate(145%);
+  backdrop-filter: blur(30px) saturate(145%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 10px 30px rgba(0, 7, 18, 0.25);
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.07) 0%,
+    rgba(255, 255, 255, 0.015) 18%,
+    rgba(255, 255, 255, 0) 42%
+  );
+}
+
+[role="tooltip"] {
+  -webkit-backdrop-filter: blur(20px) saturate(135%);
+  backdrop-filter: blur(20px) saturate(135%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 10px 28px rgba(0, 7, 18, 0.3);
+}
+
+/* Thin-glass buttons: hover lifts the inner edge, press darkens (no scale). */
+button:not(:disabled):hover {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
+}
+
+button:not(:disabled):active {
+  filter: brightness(0.92);
+  box-shadow: inset 0 1px 2px rgba(0, 7, 18, 0.35);
+}
+
+button,
+a {
+  transition: background-color 0.15s ease, border-color 0.15s ease,
+    box-shadow 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+}
+
+/* git-graph commit-graph palette. */
+[data-gitgraph-lanes] > [data-gitgraph-glyph="node"]:nth-child(6n+1),
+[data-gitgraph-lanes] > [data-gitgraph-glyph="merge"]:nth-child(6n+1) { color: #67DCE7; }
+[data-gitgraph-lanes] > [data-gitgraph-glyph="node"]:nth-child(6n+2),
+[data-gitgraph-lanes] > [data-gitgraph-glyph="merge"]:nth-child(6n+2) { color: #CBE77D; }
+[data-gitgraph-lanes] > [data-gitgraph-glyph="node"]:nth-child(6n+3),
+[data-gitgraph-lanes] > [data-gitgraph-glyph="merge"]:nth-child(6n+3) { color: #F3B75F; }
+[data-gitgraph-lanes] > [data-gitgraph-glyph="node"]:nth-child(6n+4),
+[data-gitgraph-lanes] > [data-gitgraph-glyph="merge"]:nth-child(6n+4) { color: #DD8FAC; }
+[data-gitgraph-lanes] > [data-gitgraph-glyph="node"]:nth-child(6n+5),
+[data-gitgraph-lanes] > [data-gitgraph-glyph="merge"]:nth-child(6n+5) { color: #86e2ea; }
+[data-gitgraph-lanes] > [data-gitgraph-glyph="node"]:nth-child(6n),
+[data-gitgraph-lanes] > [data-gitgraph-glyph="merge"]:nth-child(6n) { color: #d6ee9a; }
+
+[data-gitgraph-ref]:not([data-gitgraph-ref-current]) {
+  background: rgba(103, 220, 231, 0.12);
+  border: 1px solid rgba(103, 220, 231, 0.1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button,
+  a {
+    transition: none;
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root {
+    --dsw-glass-normal: rgba(10, 18, 31, 0.82);
+    --dsw-glass-high: rgba(7, 15, 27, 0.92);
+    --dsw-glass-float: rgba(16, 22, 37, 0.9);
+  }
+}

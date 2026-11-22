@@ -1,0 +1,7 @@
+# Remielle Dan 主题插件 —— bundle patch。
+# 往宿主插件树里插一行；这一行的名字解析到这个包：宿主半边取 package.json 的
+# main（host.js，静态资产路由），浏览器半边取 ./client 导出（client.js），
+# 由子 package.json 的 dsh.client 声明接入客户模块系统。
+- insert:
+    - id: remielle-dan-theme
+      name: dsh-remielle-dan

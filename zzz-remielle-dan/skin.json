@@ -1,0 +1,45 @@
+{
+  "$schema": "https://schemas.linxin666.org/dsh-skin/v2.json",
+  "skinManifestVersion": 2,
+  "id": "zzz-remielle-dan",
+  "name": "Remielle Dan",
+  "nameEn": "Summer Liquid Glass",
+  "version": "0.0.4",
+  "author": "dsh-web-ui",
+  "license": "BSD-3-Clause",
+  "sourceUrl": "https://github.com/zhu1090093659/dsh-skins/tree/main/skins/summer-liquid-glass",
+  "attribution": "皮肤代码来自 zhu1090093659/dsh-skins 的 summer-liquid-glass（BSD-3-Clause，Copyright (c) 2026 zhu1090093659）。背景图：《绝区零》角色蕾米埃尔插画，权利归 miHoYo / HoYoverse 所有，不随本皮肤授权，仅限本地使用。",
+  "tagline": "日系夏祭背景 · iOS 26 液态玻璃 · 冰青玫瑰琥珀三强调",
+  "description": "《夏沫琉璃》— 日系夏祭背景 + iOS 26 液态玻璃主题：人物与烟花在分层半透明玻璃面板之后若隐若现，玻璃面板带内缘高光、非均匀边缘反射与柔和扩散阴影；冰青 #67DCE7 作主要交互、玫瑰粉 #DD8FAC 作选中与品牌细节、琥珀金 #F3B75F 作运行中与重要提示、黄绿 #CBE77D 仅用于成功。代码、终端、日志与聊天区使用更低透明度的高可读玻璃，长时间使用不累眼。",
+  "tags": [
+    "liquid-glass",
+    "summer",
+    "fireworks",
+    "glass",
+    "cyan",
+    "rose",
+    "ios26"
+  ],
+  "accent": "#67DCE7",
+  "order": 14,
+  "preview": {
+    "light": "preview/light.png",
+    "dark": "preview/dark.png"
+  },
+  "contributes": {
+    "stylesheet": "skin.css",
+    "patches": "patches.css",
+    "backgroundMedia": {
+      "light": {
+        "type": "image",
+        "src": "assets/remielle-dan-art.jpg",
+        "scrim": "linear-gradient(to right, rgba(250, 248, 252, 0.90) 0%, rgba(250, 248, 252, 0.80) 22%, rgba(250, 248, 252, 0.72) 45%, rgba(250, 248, 252, 0.72) 100%)"
+      },
+      "dark": {
+        "type": "image",
+        "src": "assets/remielle-dan-art.jpg",
+        "scrim": "linear-gradient(rgba(7, 19, 33, 0.28) 0%, rgba(7, 19, 33, 0.22) 45%, rgba(7, 19, 33, 0.32) 100%)"
+      }
+    }
+  }
+}

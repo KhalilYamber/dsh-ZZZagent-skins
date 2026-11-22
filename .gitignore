@@ -1,0 +1,23 @@
+# 系统与依赖
+node_modules/
+.DS_Store
+Thumbs.db
+.dsh/
+
+# 临时与日志
+*.log
+*.tmp
+# 手动改动前的临时备份：作者本地保留即可，不进版本库
+*.bak-*
+
+# 本地工程面：只服务作者本机的会话接续，刻意不进公开仓库
+# （AGENTS.md「会话工作循环」引用这两个文件，但那套循环是本地约定）
+claude-progress.md
+feature_list.json
+
+# 注意：zzz-remielle-dan/ 皮肤目录必须入库——它是项目主体，不是临时产物。
+# 其中 assets/remielle-dan-art.jpg 为受限素材，作者已知情保留（见 NOTICE 2.3）。
+
+# 上游自带的两张预览图：约 8.8 MB，且画的是**已不存在的旧夏祭背景**，
+# 既不代表当前外观，又多带一份受限素材。保留在本地当对照，不进仓库。
+zzz-remielle-dan/preview/
