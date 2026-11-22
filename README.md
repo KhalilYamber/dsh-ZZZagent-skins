@@ -28,7 +28,8 @@ zzz-remielle-dan/     源文件与素材（不是可安装的皮肤，别往皮�
   skin.css               token 源文件
   patches.css            DOM 质感源文件
   assets/                背景图（host.js 直接读这里）
-  preview/               上游旧截图，已过期，待删
+  skin.json              上游皮肤的退役清单；保留是因为它承载 attribution（权利归属）。
+                         不要装回皮肤中心，也不要恢复成可加载形态
 
 LICENSE               BSD-3-Clause（含上游版权行与本项目衍生版权行）
 NOTICE                来源与授权溯源，含受限素材的处置约定

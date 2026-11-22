@@ -21,7 +21,6 @@ zzz-remielle-dan/       源文件与素材（不是可安装皮肤）
   skin.css               token 源（生成 theme.css 用）
   patches.css            DOM 质感源
   assets/                背景图；host.js 直接读这里，别挪
-  preview/               上游旧截图，已过期，待删
 
 LICENSE / NOTICE        许可与授权溯源
 README / AGENTS / ARCHITECTURE / CHANGELOG
