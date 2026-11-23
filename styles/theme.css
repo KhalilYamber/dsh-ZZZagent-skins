@@ -9,6 +9,15 @@ html[data-remielle-dan] {
   color: #F8F3F5;
   background-color: #071321;
 
+  /* ── 壁纸遮罩（就是「黑纱」）───────────────────────────────────────────────
+     client.js 的背景层按顺序读这三个变量，盖在壁纸上。
+     现在三个都是全透明 = 不要纱。
+     想恢复原本的纱：把下面注释里的原值填回去即可。
+       上 0.28 / 中 0.22 / 下 0.32（来自 skin.json 的 dark.scrim） */
+  --remielle-veil-top: rgba(7, 19, 33, 0);
+  --remielle-veil-mid: rgba(7, 19, 33, 0);
+  --remielle-veil-bot: rgba(7, 19, 33, 0);
+
   /* ── Glass tiers ─────────────────────────────────────────────────────────── */
   --dsw-glass-normal: rgba(18, 25, 39, 0.46);
   --dsw-glass-high: rgba(10, 18, 31, 0.78);
@@ -90,7 +99,12 @@ html[data-remielle-dan] {
   --dsw-static-red-900: #7a2a34;
 
   /* ── Alias palette ───────────────────────────────────────────────────────── */
-  --dsw-alias-bg-base: var(--dsw-glass-normal);
+  /* 「应用底板」。上游皮肤这里是 var(--dsw-glass-normal) = rgba(18,25,39,0.46)，
+     也就是 DSH 应用外壳那层铺满窗口的 46% 黑底 —— 壁纸在它下面，被压掉近一半亮度。
+     作者定位到「整张图偏暗」的真正来源就是它（不是背景图上那层 0.28 的渐变）。
+     取 transparent：让壁纸透上来；kimino 主题的同一个 token 也是全透明的。
+     面板/卡片仍由 --dsw-alias-bg-layer-1/2/3 提供，不靠这一层。 */
+  --dsw-alias-bg-base: transparent;
   --dsw-alias-bg-layer-1: rgba(17, 25, 39, calc(.42 + var(--dsh-skin-scrim, 0) * .3));
   --dsw-alias-bg-layer-2: rgba(24, 31, 46, calc(.46 + var(--dsh-skin-scrim, 0) * .3));
   --dsw-alias-bg-layer-3: rgba(30, 28, 44, calc(.46 + var(--dsh-skin-scrim, 0) * .3));
@@ -169,11 +183,14 @@ html[data-remielle-dan] {
   --dsw-alias-tooltip-bg: rgba(20, 26, 42, 0.92);
   --dsw-specific-bubble-highlight: #1f3a56;
   --dsw-specific-bubble: #1d334f;
-  --dsw-specific-input-major: rgba(13, 22, 39, 0.32);
+  --dsw-specific-input-major: rgba(10, 17, 31, 0.44);
   --dsw-specific-login-input: rgba(13, 22, 39, 0.5);
   --dsw-specific-menu: var(--dsw-glass-float);
   --dsw-specific-selector: rgba(24, 31, 46, 0.5);
-  --dsw-specific-sidebar-fill: rgba(17, 25, 39, 0.36);
+  /* 侧栏底色。作者要求侧栏也透出壁纸（原来 0.36 的深蓝几乎把图挡住）。
+     调到 0.10：够淡、能看见画，又留一点托底让文字站得住。
+     想全透就改成 transparent；觉得字发飘就回到 0.18 左右。 */
+  --dsw-specific-sidebar-fill: rgba(17, 25, 39, 0.1);
   --dsw-specific-sidebar-nav-item-active-accent: #1f3a56;
   --dsw-specific-sidebar-nav-item-active: #1d334f;
   --dsw-specific-sidebar-nav-item-hover: #172a43;
@@ -222,6 +239,15 @@ html[data-remielle-dan] body {
   color: #F8F3F5;
   background-color: #071321;
 
+  /* ── 壁纸遮罩（就是「黑纱」）───────────────────────────────────────────────
+     client.js 的背景层按顺序读这三个变量，盖在壁纸上。
+     现在三个都是全透明 = 不要纱。
+     想恢复原本的纱：把下面注释里的原值填回去即可。
+       上 0.28 / 中 0.22 / 下 0.32（来自 skin.json 的 dark.scrim） */
+  --remielle-veil-top: rgba(7, 19, 33, 0);
+  --remielle-veil-mid: rgba(7, 19, 33, 0);
+  --remielle-veil-bot: rgba(7, 19, 33, 0);
+
   /* ── Glass tiers ─────────────────────────────────────────────────────────── */
   --dsw-glass-normal: rgba(18, 25, 39, 0.46);
   --dsw-glass-high: rgba(10, 18, 31, 0.78);
@@ -303,7 +329,12 @@ html[data-remielle-dan] body {
   --dsw-static-red-900: #7a2a34;
 
   /* ── Alias palette ───────────────────────────────────────────────────────── */
-  --dsw-alias-bg-base: var(--dsw-glass-normal);
+  /* 「应用底板」。上游皮肤这里是 var(--dsw-glass-normal) = rgba(18,25,39,0.46)，
+     也就是 DSH 应用外壳那层铺满窗口的 46% 黑底 —— 壁纸在它下面，被压掉近一半亮度。
+     作者定位到「整张图偏暗」的真正来源就是它（不是背景图上那层 0.28 的渐变）。
+     取 transparent：让壁纸透上来；kimino 主题的同一个 token 也是全透明的。
+     面板/卡片仍由 --dsw-alias-bg-layer-1/2/3 提供，不靠这一层。 */
+  --dsw-alias-bg-base: transparent;
   --dsw-alias-bg-layer-1: rgba(17, 25, 39, calc(.42 + var(--dsh-skin-scrim, 0) * .3));
   --dsw-alias-bg-layer-2: rgba(24, 31, 46, calc(.46 + var(--dsh-skin-scrim, 0) * .3));
   --dsw-alias-bg-layer-3: rgba(30, 28, 44, calc(.46 + var(--dsh-skin-scrim, 0) * .3));
@@ -382,11 +413,14 @@ html[data-remielle-dan] body {
   --dsw-alias-tooltip-bg: rgba(20, 26, 42, 0.92);
   --dsw-specific-bubble-highlight: #1f3a56;
   --dsw-specific-bubble: #1d334f;
-  --dsw-specific-input-major: rgba(13, 22, 39, 0.32);
+  --dsw-specific-input-major: rgba(10, 17, 31, 0.44);
   --dsw-specific-login-input: rgba(13, 22, 39, 0.5);
   --dsw-specific-menu: var(--dsw-glass-float);
   --dsw-specific-selector: rgba(24, 31, 46, 0.5);
-  --dsw-specific-sidebar-fill: rgba(17, 25, 39, 0.36);
+  /* 侧栏底色。作者要求侧栏也透出壁纸（原来 0.36 的深蓝几乎把图挡住）。
+     调到 0.10：够淡、能看见画，又留一点托底让文字站得住。
+     想全透就改成 transparent；觉得字发飘就回到 0.18 左右。 */
+  --dsw-specific-sidebar-fill: rgba(17, 25, 39, 0.1);
   --dsw-specific-sidebar-nav-item-active-accent: #1f3a56;
   --dsw-specific-sidebar-nav-item-active: #1d334f;
   --dsw-specific-sidebar-nav-item-hover: #172a43;
@@ -465,7 +499,23 @@ html[data-remielle-dan] body::selection { background: rgba(221, 143, 172, 0.38);
   background: none !important;
 }
 
-/* ── 输入区改色：文字 + 边框（作者指定 #7B5AA3）─────────────────────────
+/* ── 正文区的一层底（A1，2026-11-23）────────────────────────────────────
+   为什么需要它：DSH 原生没有包住一轮的容器。一轮 AI 回复是一排同级行
+   （过程头、工具调用、正文、耗时行），行间留 4 / 12 / 16px 的缝。
+   缝之所以看不见，是因为正文面板本身有一层不透明的底
+   （ConversationRoot.module.css 的 .root: background: var(--dsw-alias-bg-base)）。
+   0.1.5 把这个 token 改成 transparent，缝就露成壁纸，一轮被读成几片。
+   这里只把那一层补回正文区：不动整窗外壳，也不恢复上游那层 0.28 的渐变纱。
+   挂载点 data-conversation-region="chat" 来自 ConversationContent.tsx，
+   它包住滚动区与 composer 座位；DSH 自己的样式表没有任何规则挂这个属性，
+   且 stop-shortcut.ts 依赖它（Esc 停止），属于承重属性。
+   改深浅只改这一个 alpha：0.18 偏画 / 0.30 平衡 / 0.45 偏字。 */
+[data-conversation-region="chat"] {
+  background-color: rgba(11, 18, 30, 0.30);
+}
+
+/* ── 输入区改色：文字 + 边框 ─────────────────────────────────────────────
+   文字当前是鲜红 #FF4D4D（2026-11-23 作者改定；此前是紫 #7B5AA3）。
    为什么挂在 composerSeat 下而不是改 token：输入文字用的是全局正文色
    （--dsw-alias-label-primary），改那个开关会把整个界面的字一起染色。
    所以用「容器 + 内联元素」两层限定，只命中输入框自己。
@@ -478,9 +528,17 @@ html[data-remielle-dan] body::selection { background: rgba(221, 143, 172, 0.38);
    若挂 active，欢迎页那个大输入框里的字不会变色，发第一条消息时才突然变紫。
    卡片在三种 phase 下都由同一个 InputBar 渲染，所以它才是稳定作用域。 */
 [data-composer-card] :is(textarea, input, [contenteditable="true"]) {
-  color: #7B5AA3 !important;
-  caret-color: #7B5AA3;
+  /* 2026-11-23：作者要求「鲜红、显眼」。取 #FF4D4D 而不是正红 #FF0000——
+     纯红的相对亮度只有 0.21，压在暗底上反而发闷；#FF4D4D 约 0.26，视觉上更跳。
+     若还想更亮一档：`#FF6B6B`（约 0.32）。
+     光标同色，否则红字配紫光标像坏了一半。 */
+  color: #FF4D4D !important;
+  caret-color: #FF4D4D;
 }
+
+/* 历史：这里试过给文字加白色微光晕（贴边 1px / 外扩 8px），
+   2026-11-23 作者判定「没什么用」，已撤。记录在此免得再试一次——
+   字的可读性主要由字本身的亮度、以及它与底的关系决定，光晕只是边缘修饰。 */
 
 /* 边框：卡片源码里写着 border: 0 —— 那条细线其实是 elevation 系统的发丝描边，
    颜色由 --dsw-elevation-stroke-color 决定。改 border-color 不会有任何效果
@@ -503,6 +561,75 @@ html[data-remielle-dan] body::selection { background: rgba(221, 143, 172, 0.38);
     0 0 20px -4px rgba(123, 90, 163, 0.65),
     var(--dsw-shadow-lv2) !important;
 }
+
+/* ── 用户气泡：包住每条用户消息（作者要求，形态借鉴聊天类 App）─────────────
+   只学「包起来」这个形态，不换配色、不搬参考图里的按钮和头像。
+
+   0.1.6 起只有用户消息有气泡。AI 那侧不画块：一轮回复的形状由正文面板的底
+   与行间 4 / 12 / 16px 的缝决定（见文件开头那条「正文区的一层底」）。
+
+   ── 0.1.6 修正：气泡要画在内层，不能画在外层 ───────────────────────────
+   症状：每条用户消息的气泡，左边界都比字多出一大截，字挤在右半边。
+   原因（读 DSH 源码得出，不是猜）：外层 flowItem 的宽度由 max-content 决定，
+   而内层 .userStack 带 max-width（min(列宽 × 0.702, 82%)），把 max-content
+   截在那个上限上，于是 flowItem 恒宽；真正装字的 [data-message-bubble] 被
+   .userStack 的 align-items: flex-end 靠右放。两者宽度不等，多出来的空白
+   全落在左边。所以把底色与圆角画在 flowItem 上，必然左边长一截。
+   依据：MessageItem.module.css 的 .userRow / .userStack
+   （display:flex; flex-direction:column; align-items:flex-end）。
+   改法：内层画、外层不画。内层元素正好包住文字，宽度天然贴着字。 */
+
+/* 气泡透明度（0–1）：只声明在 html 上，刻意不写进 skin.css 的 token 块。
+   生成脚本会把 token 块在 html 与 body 各写一份；若 body 也声明这个变量，
+   client.js 写在 html 内联样式上的滑杆值会被 body 的声明盖掉。 */
+html[data-remielle-dan] {
+  --remielle-bubble-alpha: 0.55;
+}
+
+/* 用户气泡本体：DSH 自带的文本气泡（UserContent.tsx 把 data-message-bubble
+   挂在 UserMessageBubble 上）。内边距、圆角、描边、阴影都只写在这一处，
+   不要再往 flowItem 上叠一层——那正是「左边多出一截」的成因。 */
+[data-message-bubble] {
+  box-sizing: border-box;
+  align-self: flex-end; /* 外层若哪天把 align-items 改成 stretch，仍然靠右 */
+  width: fit-content;
+  max-width: 100%;
+  padding: 10px 16px;
+  border-radius: 22px;
+  background-color: rgba(29, 51, 79, var(--remielle-bubble-alpha, 0.55));
+  border: 1px solid rgba(103, 220, 231, 0.1);
+  box-shadow: var(--dsw-shadow-lv1);
+}
+
+/* 没有内层气泡的那些（pending 回显，或将来独立的 steering 气泡），才退回把
+   外框画在节点自己身上。用 :has() 判断，避免内外两层同时上底。
+   这条路径的「恒宽」问题依旧存在，但它们是临时态，几秒就落账成普通消息。 */
+:is(
+  [data-chat-flow-kind="user"],
+  [data-chat-flow-kind="steering"],
+  [data-pending-steering],
+  [data-submission-echo]
+):not(:has([data-message-bubble])) {
+  box-sizing: border-box;
+  width: fit-content;
+  max-width: 78%;
+  margin-left: auto;
+  padding: 10px 16px;
+  border-radius: 22px;
+  background-color: rgba(29, 51, 79, var(--remielle-bubble-alpha, 0.55));
+  border: 1px solid rgba(103, 220, 231, 0.1);
+  box-shadow: var(--dsw-shadow-lv1);
+}
+
+/* ── 0.1.6 删掉的历史规则（留痕，不要再恢复）────────────────────────────
+   「一轮一纸」时期为了让一张纸透出来，这里曾有三段规则：
+     · AI 气泡（assistant / assistant-step 的深底、圆角、描边、阴影）
+     · 把 AI 各行、过程组外壳、聊天列、工具行内部全压成 transparent !important
+     · 给过程行加 14px 内边距、把过程文字抬到次级灰、turn-tail 改内边距
+   纸退役后它们只剩副作用：抹掉原生悬停反馈、让排版偏离原生。
+   附一条历史债：其中两条挂在 [data-disclosure-header] 上，而当前 DSH 版本
+   （0.2.2-rc.5）源码里不存在这个属性 —— 那两条从未生效过。
+   教训同 Session 011：源码里看到的属性，不等于运行时 DOM 上一定有。 */
 
 :focus-visible {
   outline: 2px solid rgba(103, 220, 231, 0.7);

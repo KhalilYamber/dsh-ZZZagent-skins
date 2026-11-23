@@ -9,6 +9,15 @@
   color: #F8F3F5;
   background-color: #071321;
 
+  /* ── 壁纸遮罩（就是「黑纱」）───────────────────────────────────────────────
+     client.js 的背景层按顺序读这三个变量，盖在壁纸上。
+     现在三个都是全透明 = 不要纱。
+     想恢复原本的纱：把下面注释里的原值填回去即可。
+       上 0.28 / 中 0.22 / 下 0.32（来自 skin.json 的 dark.scrim） */
+  --remielle-veil-top: rgba(7, 19, 33, 0);
+  --remielle-veil-mid: rgba(7, 19, 33, 0);
+  --remielle-veil-bot: rgba(7, 19, 33, 0);
+
   /* ── Glass tiers ─────────────────────────────────────────────────────────── */
   --dsw-glass-normal: rgba(18, 25, 39, 0.46);
   --dsw-glass-high: rgba(10, 18, 31, 0.78);
@@ -90,7 +99,12 @@
   --dsw-static-red-900: #7a2a34;
 
   /* ── Alias palette ───────────────────────────────────────────────────────── */
-  --dsw-alias-bg-base: var(--dsw-glass-normal);
+  /* 「应用底板」。上游皮肤这里是 var(--dsw-glass-normal) = rgba(18,25,39,0.46)，
+     也就是 DSH 应用外壳那层铺满窗口的 46% 黑底 —— 壁纸在它下面，被压掉近一半亮度。
+     作者定位到「整张图偏暗」的真正来源就是它（不是背景图上那层 0.28 的渐变）。
+     取 transparent：让壁纸透上来；kimino 主题的同一个 token 也是全透明的。
+     面板/卡片仍由 --dsw-alias-bg-layer-1/2/3 提供，不靠这一层。 */
+  --dsw-alias-bg-base: transparent;
   --dsw-alias-bg-layer-1: rgba(17, 25, 39, calc(.42 + var(--dsh-skin-scrim, 0) * .3));
   --dsw-alias-bg-layer-2: rgba(24, 31, 46, calc(.46 + var(--dsh-skin-scrim, 0) * .3));
   --dsw-alias-bg-layer-3: rgba(30, 28, 44, calc(.46 + var(--dsh-skin-scrim, 0) * .3));
@@ -169,11 +183,14 @@
   --dsw-alias-tooltip-bg: rgba(20, 26, 42, 0.92);
   --dsw-specific-bubble-highlight: #1f3a56;
   --dsw-specific-bubble: #1d334f;
-  --dsw-specific-input-major: rgba(13, 22, 39, 0.32);
+  --dsw-specific-input-major: rgba(10, 17, 31, 0.44);
   --dsw-specific-login-input: rgba(13, 22, 39, 0.5);
   --dsw-specific-menu: var(--dsw-glass-float);
   --dsw-specific-selector: rgba(24, 31, 46, 0.5);
-  --dsw-specific-sidebar-fill: rgba(17, 25, 39, 0.36);
+  /* 侧栏底色。作者要求侧栏也透出壁纸（原来 0.36 的深蓝几乎把图挡住）。
+     调到 0.10：够淡、能看见画，又留一点托底让文字站得住。
+     想全透就改成 transparent；觉得字发飘就回到 0.18 左右。 */
+  --dsw-specific-sidebar-fill: rgba(17, 25, 39, 0.1);
   --dsw-specific-sidebar-nav-item-active-accent: #1f3a56;
   --dsw-specific-sidebar-nav-item-active: #1d334f;
   --dsw-specific-sidebar-nav-item-hover: #172a43;

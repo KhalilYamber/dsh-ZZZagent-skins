@@ -12,9 +12,12 @@ package.json            插件清单。name=包名=client 模块 id；main=host.
                         exports 必须带 "./client"；dsh.client.immediately=true
 cordis.patch.yml        bundle patch：insert 一行 {id, name}
 host.js                 宿主半边。export default { inject:['webServer'], apply(ctx) }
-                        两条路由：/remielle-dan/theme.css、/remielle-dan/art.jpg
+                        三条路由：/remielle-dan/theme.css、/remielle-dan/art.jpg、
+                        /remielle-dan/report（前端自报，写 .client-report.log）
 client.js               浏览器半边。window.__ModuleLoader__.load({id, factory})，
-                        最后 exports.apply / exports.inject / return module.exports
+                        最后 exports.apply / exports.inject / return module.exports。
+                        除背景层外，还挂气泡透明度面板。**不碰聊天区 DOM**：
+                        不插节点、不挂 class、不装观察器（0.1.6 起）
 styles/theme.css        ★ 运行时样式，**生成产物**（勿手改）。token 块 + body 规则 + patches 全文
 scripts/build-theme-css.mjs   生成 theme.css 的脚本（改完源文件跑它）
 zzz-remielle-dan/       源文件与素材（不是可安装皮肤）
@@ -25,6 +28,17 @@ zzz-remielle-dan/       源文件与素材（不是可安装皮肤）
 LICENSE / NOTICE        许可与授权溯源
 README / AGENTS / ARCHITECTURE / CHANGELOG
 ```
+
+## 消息区的形状（2026-11-23 定案，0.1.6）
+
+- **一轮 AI 回复没有容器**。它是一排同级行，行间 4 / 12 / 16px 的缝天生透明；
+  缝看不见是因为正文面板有底。所以「一轮一整块」靠**底**，不靠画框。
+- 现在的做法：`patches.css` 里 `[data-conversation-region="chat"]` 一条
+  `background-color: rgba(11, 18, 30, 0.30)`。深浅只改 alpha。
+- **不要重复**：逐节点背景 band、`margin: 0` 强压、DOM 包裹 React 节点、
+  给每轮画绝对定位的纸。四条都试过，代价写在 `ARCHITECTURE.md` 第八节。
+- 历史过程：`SNAPSHOT-一轮一纸-20261123.md`（已解决，留作参照）。
+- 未单独验收：`/plan` 之后的用户气泡（steering / pending 回显）。
 
 ## 会话工作循环
 
@@ -62,11 +76,33 @@ README / AGENTS / ARCHITECTURE / CHANGELOG
 | `[class*="composerSeat"]` | 输入座位容器（上游皮肤就依赖这个类名片段） | 暗带相关规则失效 |
 | `box-shadow !important` | 加粗描边 + 光晕是整条接管阴影画出来的 | 粗细与光晕消失，卡片仍能用 |
 | `data-phase` 三值 | `settling` / `hero` / `active`；新会话是 `hero` | 若按 `active` 限作用域，新会话里样式不生效 |
+| `[data-conversation-region="chat"]` | 正文区容器（`ConversationContent.tsx` 挂在 `.body` 上，包住滚动区与 composer 座位）；`stop-shortcut.ts` 依赖它 | **正文区那一层底消失**，一轮又读成几片；不会崩 |
+| `[data-chat-flow-kind]` | 消息节点的种类属性（`ChatNodeSeat.tsx`） | 用户气泡选择器不命中 |
+| `data-pending-steering` / `data-submission-echo` | pending 用户回显的 `userRow` | `/plan` 后的消息没有气泡 |
 
 依据来源：DSH 仓库 `deepseek-ai/deepseek-harness`，tag **`dsh-v0.2.2-rc.5`**（与本机版本一致）。
 关键文件：`packages/client/ui-conversation/src/client/skeleton/InputBar.tsx`、
 同目录 `InputBar.module.css`、`ConversationMainPanel.tsx`（`phase` 计算）、
-`ConversationRoot.module.css`（`composerSeat` 定义）。
+`ConversationRoot.module.css`（`composerSeat` 与 `.body` 定义）、
+`ConversationContent.tsx`（`data-conversation-region` / `.scrollBody`）、
+`packages/client/ui-chat/src/client/chat/ChatFlow.tsx`（flow 无父节点）、
+同目录 `ChatNodeSeat.tsx` / `ChatGroupSeat.tsx`（`data-chat-turn` 等属性）、
+`ChatView.module.css`（行间 4 / 12 / 16px 的 `--dsh-chat-flow-gap`）。
+注意：本机 `app.asar` 里这些包的 `src/` 源码是随包发布的，可直接解出核对，
+不必去 GitHub 翻。解包位置（2026-11-23 实测，别再猜偏移）：
+
+```
+文件：D:\DSH\app\resources\app.asar            （单文件，约 209 MB）
+[0..3]   uint32 = 4
+[4..7]   headerPickleSize                     ← 头 pickle 载荷长度
+[8..11]  pickle 载荷首 4 字节
+[12..15] jsonSize                             ← 目录树 JSON 的长度
+[16..15+jsonSize]  目录树 JSON（{files:{name:{offset,size}|{files}}}}）
+数据起点 = 8 + headerPickleSize；文件偏移相对数据起点
+```
+
+目录树里按 `dsh/node_modules/@deepseek-ai/<包名>/src/...` 就能拿到未编译的 `.tsx`。
+`lib/client.js` 是打包产物（各包自带上百 KB），读源码没用，以 `src/` 为准。
 
 ## 改动分级
 
@@ -83,6 +119,8 @@ README / AGENTS / ARCHITECTURE / CHANGELOG
    `styles/theme.css` 花括号配平；`host.js` 依赖的文件都在。
 2. **装载**：改 profile 后**重启 DSH**。插件在启动时装，不重启看不到任何变化。
 3. **观感**：四处各看一眼——侧边栏文字、设置页、代码块、明暗外观切换。
+   消息区另看一眼：用户消息有气泡、AI 一轮读作一整片（行间不露亮缝）、
+   壁纸在对话区仍看得清。
 
 第 3 步只能人眼。观感问题不要靠猜，先要现象（报错文本 / 截图 / 哪个区域不对）。
 
@@ -91,6 +129,10 @@ README / AGENTS / ARCHITECTURE / CHANGELOG
 - 不要给 DSH 本体打补丁，也不要改 `app.asar` 里的东西。
 - 不要在 `host.js` 里做重活（它只该发文件）。
 - 不要往 `client.js` 里塞业务逻辑（它只该改外观）。
+- 不要用逐个节点的背景去拼一整轮气泡，结果一定是一摞卡片。
+- 不要用 `margin: 0` 强行压平聊天原生间距，那会丢掉 DSH 自己的 4 / 12 / 16px。
+- 不要用 DOM 包裹 React 聊天节点，也不要在聊天区加容器层：流式更新时 React 的插入/删除会错位。
+  一轮的形状由面板的底给出，不需要再画框。
 - 不要为了"看起来更整齐"去合并 `styles/theme.css` 与 `zzz-remielle-dan/` 下的源文件——
   两者的关系是"生成产物 / 源"，合并了就没法追溯改动来自哪。
 

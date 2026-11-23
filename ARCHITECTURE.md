@@ -48,15 +48,18 @@ profile 的 package.json
   dsh.profile.bundles: [..., "dsh-remielle-dan"]
         │
         ▼  重启时
-  宿主导入 host.js → apply(ctx)
-        │   ctx.webServer.register 注册两条 exact 路由
+  宿主 host.js → apply(ctx)
+        │   ctx.webServer.register 注册三条 exact 路由：
+        │     /remielle-dan/theme.css、/remielle-dan/art.jpg、
+        │     /remielle-dan/report（前端自报，写 .client-report.log）
         │   ctx.effect(() => dispose) 登记销毁
         ▼
   浏览器加载 client.js → factory → apply(ctx)
         │   1. <html> 打 data-remielle-dan
         │   2. <link rel=stylesheet href=/remielle-dan/theme.css>
-        │   3. <style> 背景层基础规则
+        │   3. <style> 背景层 + 气泡面板的基础规则
         │   4. <div id=remielle-dan-bg>
+        │   5. 右下角气泡透明度面板
         ▼
   样式生效
 ```
@@ -117,7 +120,7 @@ profile 的 package.json
 |---|---|
 | 临时关掉 | 从 `dsh.profile.bundles` 删 `"dsh-remielle-dan"` → 重启 |
 | 彻底卸载 | 再删 `dependencies` 里那条 → profile 目录跑 `pnpm install` |
-| 只回退视觉 | 改源（`skin.css` / `patches.css`）后跑 `node scripts/build-theme-css.mjs`；背景层在 `client.js` 的 `BASE_CSS`。刷新即可（路由 `no-store`） |
+| 只回退视觉 | 纯 CSS 改动：改源（`skin.css` / `patches.css`）后跑 `node scripts/build-theme-css.mjs`，刷新即可（路由 `no-store`）。`client.js` 改动要重启 DSH；背景层、气泡面板、一轮一纸外框都在 `client.js`。 |
 | 回退整个 profile 配置 | `package.json.bak-remielle-20261122-1900` |
 
 ## 七、已验证与仍未知
@@ -130,3 +133,67 @@ profile 的 package.json
 
 仍未未知的只剩一件：**DSH 升级后这些耦合点会不会断**。断了不会崩，表现是"某块不生效"，
 清单见 `AGENTS.md` 的「已知耦合点」。
+
+另外，消息区的形状（用户气泡 + 正文区一层底）见下一节。
+
+## 八、消息区：为什么是「一层底」而不是「一轮一框」
+
+### 先说 DSH 原生的结构
+
+一轮 AI 回复在 DOM 里**没有容器**。依据 `dsh-client-ui-chat/src/client/chat/ChatFlow.tsx:25`
+的注释（"Render the flow without adding a DOM parent"）：它返回一个数组，所以过程头、
+工具调用组、正文、耗时行是同一列里的**兄弟节点**，直接挂在正文列下。
+
+- 每个兄弟节点是一个 `div`，带 `data-chat-flow-kind`（种类）、`data-chat-turn`（第几轮）
+  等稳定属性（`ChatNodeSeat.tsx:153-164`）；工具调用组的外壳同样带 `data-chat-turn`
+  （`ChatGroupSeat.tsx:191-194`）。
+- 兄弟之间的缝由外边距给出：默认 4px、回答段 12px、过程头之后 16px
+  （`ChatView.module.css:82-143`）。**这些缝天生透明。**
+- 缝之所以看不见，是因为正文面板本身有一层底：`ConversationRoot.module.css:7`
+  写着 `background: var(--dsw-alias-bg-base)`，原生值是 `rgb(21, 21, 23)`。
+
+所以「一轮看起来是一整块」不是靠容器画出来的，是靠**底**托出来的。
+
+### 本项目怎么接
+
+0.1.5 把 `--dsw-alias-bg-base` 改成 `transparent`（为了让壁纸透上来），
+缝就露成壁纸，一轮被读成几片。0.1.6 的接法是只把那一层补回正文区：
+
+```css
+[data-conversation-region="chat"] { background-color: rgba(11, 18, 30, 0.30); }
+```
+
+- 挂载点 `data-conversation-region="chat"` 来自 `ConversationContent.tsx:191-207`，
+  它包住滚动区与 composer 座位。
+- DSH 自己的样式表里**没有规则挂这个属性**，而 `stop-shortcut.ts` 依赖它（Esc 停止），
+  属于承重属性，不易被随手改名。
+- 该容器（`.body`）自身没有背景声明（`ConversationRoot.module.css:458-475`），
+  所以这条规则同权重就够，不需要 `!important`。
+- 不恢复上游那层 0.28 的渐变纱，也不动整窗外壳，所以比上游明显更亮。
+
+### 用户气泡
+
+- 选择器：`[data-chat-flow-kind="user"]`、`[data-chat-flow-kind="steering"]`、
+  `[data-pending-steering]`、`[data-submission-echo]`。
+- 前两类是 durable flowItem；后两类是 pending 回显的 `userRow`。
+  `/plan` 之后的消息没气泡，就是漏了后两类。
+- 底、边、圆角、阴影都在 `patches.css` 的同一条规则里；不要只改其中一类。
+- 内层 `[data-message-bubble]` 被压成透明，否则里外两层会叠。
+
+### 已经作废的路线（不要再捡回来）
+
+- **逐节点加背景**：结果是一摞卡片。
+- **`margin: 0` 压平行距**：破坏 DSH 自己的 4 / 12 / 16px。
+- **用 DOM 包裹 React 节点**：流式更新时 React 的插入/删除可能报错或错位。
+- **给每轮画一张绝对定位的纸（`installTurnPaper`）**：0.1.6 整段删除。
+  它必须靠测量去追 React 的每一次重排，而原生结构里根本没有容器可依。
+  历史过程见 `SNAPSHOT-一轮一纸-20261123.md`。
+
+### 两条踩过的坑
+
+1. **源码里看到的属性，不等于运行时 DOM 上一定有。** 0.1.4 按 `assistant` 写选择器，
+   实测命中 0 个（AI 正文的 kind 是 `assistant-step`）；0.1.6 发现
+   `[data-disclosure-header]` 在当前版本源码里根本不存在，挂在它上面的两条规则从未生效。
+2. **删规则前先确认它有没有在起作用。** 0.1.5 为「纸」写的那批透明规则，
+   在纸退役后只剩副作用（抹掉原生悬停、让排版偏离原生），所以整段删除而非保留。
+
