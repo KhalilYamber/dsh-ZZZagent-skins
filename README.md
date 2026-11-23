@@ -4,14 +4,16 @@ Remielle Dan — 一个**自建的 DSH Web 主题插件**。
 
 不依赖皮肤中心，不用在设置里点"应用"：装进 profile，重启，DSH 就是这个样子。
 
-**当前状态**：0.1.6 起，下面五项都在真机上验收通过。
+**当前状态**（0.1.7）：前四项在真机上验收通过；第五项是 0.1.7 新增的设置页分区，目前只读占位。
 
 - **主题底座与背景图**：深蓝玻璃、壁纸铺到窗口最底、侧栏透出画。
 - **正文区一层底（30%）**：AI 一轮回复读作一整片，行间不露亮缝。这一层是**面板的底**，
   不是逐轮画的框——DSH 原生没有「轮容器」。
 - **用户消息气泡**：独立圆角气泡，宽度贴着字；`/plan` 之后的回显也接住了。
 - **输入区**：文字与光标鲜红 `#FF4D4D`，卡片紫描边加粗 + 光晕。
-- **气泡透明度面板**：右下角滑杆，值存 localStorage。
+- **设置页**：DSH 官方设置里新增「Remielle Dan」分区（`settings.section` 槽，id `remielle-dan`），
+  内容是只读占位：三行当前值 + 两个禁用按钮 + 版本号。右下角的气泡透明度浮窗已删除，
+  气泡透明度定为 55%，写在 `patches.css` 里，运行时不再改写。
 
 「一轮一纸」的旧实验（给每轮画一张绝对定位的纸）已整段删除，定位过程与结论见
 `SNAPSHOT-一轮一纸-20261123.md`。
@@ -30,7 +32,7 @@ DSH 本体只认插件。"皮肤"（`skin.json` + 皮肤中心）是第三方插
 package.json          插件清单：main=host.js，exports 带 ./client，dsh.client.immediately=true
 cordis.patch.yml      bundle patch：往宿主插件树插一行 remielle-dan-theme
 host.js               宿主半边：三条路由（样式表、背景图、自报日志）
-client.js             浏览器半边：打标记 → 挂样式 → 铺背景层 → 气泡透明度面板
+client.js             浏览器半边：打标记 → 挂样式 → 铺背景层 → 向官方设置页注册 Remielle Dan 分区
                       （对聊天区只读不写：不插节点、不挂 class、不装观察器）
 styles/theme.css       运行时样式，**生成产物**（勿手改；跑 scripts/build-theme-css.mjs 重生成）
 scripts/build-theme-css.mjs  生成 theme.css 的脚本：改完源文件跑它
@@ -83,7 +85,7 @@ SNAPSHOT-一轮一纸-20261123.md  一次失败实验的定位全过程与结论
 | 输入区文字 / 光标颜色 | `patches.css` 里 `[data-composer-card]` 那段，把 `#FF4D4D`（鲜红，2026-11-23 起）换掉。卡片描边仍走下面那条 |
 | 输入框描边粗细 / 光晕 | `patches.css` 里 `[data-composer-card]` 的 `box-shadow` 三层：`0 0 0 1.5px` 是粗细，`20px -4px` 是光晕范围，`0.65` 是浓度 |
 | 输入框背后那道暗带 | 已删除。原规则在 `patches.css` 的 `composerSeat:before`（保留注释说明为什么删） |
-| 消息气泡 | `patches.css` 里 `[data-chat-flow-kind="user"]` 那三条选择器（user / steering / pending 回显），颜色与圆角同一处 |
+| 消息气泡 | `patches.css` 里 `[data-message-bubble]` 那条（气泡本体）；没有内层气泡的 pending 回显走 `:not(:has([data-message-bubble]))` 那条兜底 |
 | 正文区那一层底 | `patches.css` 里 `[data-conversation-region="chat"]` 的 `background-color`，只改 alpha：`0.18` 偏画 / `0.30` 现状 / `0.45` 偏字 |
 
 ## 已知边界
@@ -94,6 +96,8 @@ SNAPSHOT-一轮一纸-20261123.md  一次失败实验的定位全过程与结论
   「一轮一纸」的旧实验已整段删除，过程记在 `SNAPSHOT-一轮一纸-20261123.md`。
 - **已实测**：装载、路由、token 覆盖、背景层、正文区一层底、用户气泡、输入区改色与红字，
   都在真机上验过。唯一没验的是「DSH 升级之后还能不能用」——这件事只能升级时才知道。
+- **设置页分区目前只是占位**：三个值只读、两个按钮禁用，控件留待后续版本。
+  它依赖 `settings.section` 槽，DSH 升级后可能失配——断了只是少一个分区，主题不受影响。
 - **比皮肤脆**：皮肤中心是一层适配，帮使用者挡了宿主改版；插件直接贴着页面结构写，
   DSH 升级后可能失配。已知耦合点集中在 `[data-composer-card]` 与
   `--dsw-elevation-stroke-color`（见 `AGENTS.md`）。

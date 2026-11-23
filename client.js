@@ -7,6 +7,7 @@
 //   1. 在 <html> 上打 data-remielle-dan，作为全部样式的总开关；
 //   2. 挂一张样式表 /remielle-dan/theme.css（token 重映射 + 玻璃质感）；
 //   3. 铺一层背景：固定定位的 -1 层，图 + 可读性遮罩。
+// 另加一处：向官方设置页注册「Remielle Dan」分区（0.1.7 起，目前只读占位）。
 //
 // 每个副作用都通过 ctx.effect 注册销毁函数：禁用插件后页面能干净回到原生外观。
 window.__ModuleLoader__.load({
@@ -16,13 +17,15 @@ window.__ModuleLoader__.load({
     var exports = module.exports;
     Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 
-    const inject = [];
+    // 0.1.7 起要往官方设置页挂分区，需要 slots 服务；它由客户端核心提供，
+    // 与 yammory-system 插件的用法一致（那个插件同样 inject: ['slots']）。
+    const inject = ['slots'];
     const ATTR = 'data-remielle-dan';
     const CSS_URL = '/remielle-dan/theme.css';
     const ART_URL = '/remielle-dan/art.jpg';
     const REPORT_URL = '/remielle-dan/report';
     // 改动这个标记，就能在 .client-report.log 里认出「页面跑的是哪一版」。
-    const BUILD_TAG = '0.1.6';
+    const BUILD_TAG = '0.1.7';
 
     // 背景层：遮罩在上、图在下（CSS 多重背景，写在前的在上层）。
     //
@@ -54,91 +57,85 @@ html[${ATTR}] body {
 }
 `;
 
-    // 气泡透明度面板：插件自带，不依赖 DSH 设置页的 DOM。
-    // 它只做一件事：把 --remielle-bubble-alpha 写到 <html> 的内联样式上。
-    // 0.1.6 起只有用户气泡读这一个变量（AI 那侧不画块，形状由面板的底给出）。
-    // 值存在 localStorage，刷新后还在。
-    const ALPHA_KEY = 'remielle:bubble-alpha';
-    const ALPHA_DEFAULT = 55;
-    const ALPHA_MIN = 20;
-    const ALPHA_MAX = 90;
+    // ── 设置页分区（0.1.7）─────────────────────────────────────────────────
+    // 0.1.7 起气泡透明度定为 55%（写在 patches.css 的 --remielle-bubble-alpha），
+    // 原来那个右下角浮窗整套删除。这里改为向官方设置页注册一个分区，先把位置占住。
+    //
+    // 契约来自本机已在工作的 yammory-system 插件（同版本 DSH，非猜测）：
+    //   ctx.slots.inject('settings.section', () => ctx.slots.register({
+    //     name: 'settings.section', id, order, label, /* inject?: hooks */
+    //   }, Component))
+    // 组件是普通 React 函数组件，React 由宿主模块系统提供（require('react')），
+    // 不需要构建步骤。我们不接 configForms：占位分区不保存任何东西。
+    //
+    // 安全性：整段在 apply() 末尾单独 try/catch。它失败只会少一个设置分区，
+    // 主题照常生效——这是本轮唯一可能连累整体的地方，所以放在最后。
+    const SETTINGS_SLOT = 'settings.section';
+    const SETTINGS_ID = 'remielle-dan';
+    let settingsState = 'pending';
 
-    const readAlpha = () => {
-      try {
-        const raw = window.localStorage.getItem(ALPHA_KEY);
-        const value = raw === null ? Number.NaN : Number(raw);
-        if (!Number.isFinite(value)) return ALPHA_DEFAULT;
-        return Math.min(Math.max(Math.round(value), ALPHA_MIN), ALPHA_MAX);
-      } catch (e) {
-        return ALPHA_DEFAULT;
-      }
-    };
+    const installSettingsSection = (ctx) => {
+      const react = require('react');
+      const h = react.createElement;
 
-    const writeAlpha = (value) => {
-      try {
-        window.localStorage.setItem(ALPHA_KEY, String(value));
-      } catch (e) {
-        /* 隐私模式或配额满时只在本次页面生效 */
-      }
-    };
-
-    const installBubbleControl = (root) => {
-      let alpha = readAlpha();
-      const applyAlpha = (next) => {
-        alpha = Math.min(Math.max(Math.round(next), ALPHA_MIN), ALPHA_MAX);
-        root.style.setProperty('--remielle-bubble-alpha', String(alpha / 100));
-        const value = document.getElementById('remielle-bubble-value');
-        if (value !== null) value.textContent = `${alpha}%`;
-        const slider = document.getElementById('remielle-bubble-slider');
-        if (slider !== null && Number(slider.value) !== alpha) slider.value = String(alpha);
+      const readVar = (name, fallback) => {
+        try {
+          return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+        } catch (e) {
+          return fallback;
+        }
       };
-      applyAlpha(alpha);
-
-      const style = document.createElement('style');
-      style.setAttribute('data-remielle-dan-asset', '');
-      style.textContent = `
-        #remielle-bubble-control { position: fixed; right: 16px; bottom: 92px; z-index: 2147483000; font: 12px/1.4 system-ui, sans-serif; color: #F8F3F5; }
-        #remielle-bubble-toggle { width: 34px; height: 34px; padding: 0; border-radius: 50%; border: 1px solid rgba(103,220,231,0.35); background: rgba(13,22,39,0.72); color: #67DCE7; cursor: pointer; backdrop-filter: blur(12px); }
-        #remielle-bubble-panel { position: absolute; right: 0; bottom: 44px; width: 220px; padding: 12px 14px; border-radius: 14px; background: rgba(13,22,39,0.9); border: 1px solid rgba(103,220,231,0.22); box-shadow: 0 10px 30px rgba(0,7,18,0.35); backdrop-filter: blur(18px); }
-        #remielle-bubble-panel[hidden] { display: none; }
-        #remielle-bubble-panel .row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-        #remielle-bubble-panel .hint { display: flex; justify-content: space-between; margin-top: 6px; opacity: 0.6; }
-        #remielle-bubble-slider { width: 100%; accent-color: #7B5AA3; }
-        #remielle-bubble-reset { width: 100%; margin-top: 10px; padding: 6px 8px; border-radius: 8px; border: 1px solid rgba(103,220,231,0.22); background: rgba(29,51,79,0.5); color: #C0CAD5; cursor: pointer; }
-      `;
-      document.head.appendChild(style);
-
-      const box = document.createElement('div');
-      box.id = 'remielle-bubble-control';
-      box.innerHTML = `
-        <button id="remielle-bubble-toggle" type="button" title="气泡透明度" aria-label="气泡透明度">◐</button>
-        <div id="remielle-bubble-panel" hidden>
-          <div class="row"><span>气泡透明度</span><span id="remielle-bubble-value">${alpha}%</span></div>
-          <input id="remielle-bubble-slider" type="range" min="${ALPHA_MIN}" max="${ALPHA_MAX}" step="5" value="${alpha}" />
-          <div class="hint"><span>更透</span><span>更实</span></div>
-          <button id="remielle-bubble-reset" type="button">恢复默认 ${ALPHA_DEFAULT}%</button>
-        </div>
-      `;
-      document.body.appendChild(box);
-
-      const panel = box.querySelector('#remielle-bubble-panel');
-      const toggle = box.querySelector('#remielle-bubble-toggle');
-      const slider = box.querySelector('#remielle-bubble-slider');
-      const reset = box.querySelector('#remielle-bubble-reset');
-      toggle.addEventListener('click', () => { panel.hidden = !panel.hidden; });
-      slider.addEventListener('input', () => {
-        applyAlpha(Number(slider.value));
-        writeAlpha(alpha);
-      });
-      reset.addEventListener('click', () => {
-        applyAlpha(ALPHA_DEFAULT);
-        writeAlpha(alpha);
-      });
-
-      return () => {
-        style.remove();
-        box.remove();
+      const computedOf = (selector, prop, fallback) => {
+        try {
+          const el = document.querySelector(selector);
+          return el === null ? fallback : (getComputedStyle(el)[prop] || fallback);
+        } catch (e) {
+          return fallback;
+        }
       };
+
+      // 展示当前生效值：每次渲染现读页面算出来的值，读不到才用写死的兜底。
+      // 这样以后改 CSS，设置页不会显示旧数字。
+      const liveBubblePct = () => {
+        const alpha = readVar('--remielle-bubble-alpha', '0.55');
+        return `${Math.round(Number(alpha) * 100)}%`;
+      };
+      const liveChatBg = () => computedOf('[data-conversation-region="chat"]', 'backgroundColor', 'rgba(11, 18, 30, 0.3)');
+      const liveInputColor = () => computedOf(
+        '[data-composer-card] textarea, [data-composer-card] [contenteditable="true"]',
+        'color',
+        'rgb(255, 77, 77)',
+      );
+
+      const row = (k, v) => h('div', { className: 'remielle-set-row' },
+        h('span', { className: 'remielle-set-k' }, k),
+        h('span', { className: 'remielle-set-v' }, v));
+
+      /** 设置页分区组件。目前只读：展示值 + 两个禁用按钮占位。 */
+      function RemielleSection() {
+        return h('div', { className: 'remielle-set' },
+          h('h2', { className: 'remielle-set-title' }, 'Remielle Dan'),
+          h('p', { className: 'remielle-set-desc' },
+            '主题插件的外观设置。下面是当前生效的值；可调的控件留待后续版本补上。'),
+          h('div', { className: 'remielle-set-group' }, '外观 · 当前值'),
+          row('用户气泡透明度', liveBubblePct()),
+          row('正文区底', liveChatBg()),
+          row('输入文字颜色', liveInputColor()),
+          h('div', { className: 'remielle-set-group' }, '预留'),
+          h('div', { className: 'remielle-set-actions' },
+            h('button', { className: 'remielle-set-btn', type: 'button', disabled: true }, '恢复默认外观'),
+            h('button', { className: 'remielle-set-btn', type: 'button', disabled: true }, '导出配置')),
+          h('p', { className: 'remielle-set-note' },
+            '这两个按钮是占位。等可调项多起来，再逐项接上真正的控件。'),
+          h('p', { className: 'remielle-set-note' }, `Remielle Dan 主题插件 · ${BUILD_TAG}`));
+      }
+
+      return ctx.slots.inject(SETTINGS_SLOT, () => ctx.slots.register({
+        name: SETTINGS_SLOT,
+        id: SETTINGS_ID,
+        order: 40,
+        label: 'Remielle Dan',
+      }, RemielleSection));
     };
 
     const apply = (ctx) => {
@@ -146,8 +143,13 @@ html[${ATTR}] body {
       root.setAttribute(ATTR, 'on');
       ctx.effect(() => () => root.removeAttribute(ATTR));
 
-      const disposeBubbleControl = installBubbleControl(root);
-      ctx.effect(() => disposeBubbleControl);
+      // 0.1.7：右下角那个透明度浮窗已删，它当年写的 localStorage 键也一并清掉——
+      // 留着只会让以后的人以为还有东西在读它。
+      try {
+        window.localStorage.removeItem('remielle:bubble-alpha');
+      } catch (e) {
+        /* 隐私模式或配额满时取不到，忽略 */
+      }
 
       const link = document.createElement('link');
       link.rel = 'stylesheet';
@@ -294,6 +296,8 @@ html[${ATTR}] body {
                 height: Math.round(regionBox.height),
               },
             paperCount: document.querySelectorAll('.remielle-turn-paper').length,
+            settingsSection: settingsState,
+            bubblePanel: 'removed',
             chatKinds: [...kinds].slice(0, 12),
             userNode: describeNode('user'),
             assistantNode: describeNode('assistant'),
@@ -320,6 +324,19 @@ html[${ATTR}] body {
         clearTimeout(reportTimer);
         clearTimeout(reportTimer2);
       });
+
+      // ── 设置页分区：放在最后 ──────────────────────────────────────────────
+      // 失败只会少一个设置分区，主题照常。这是本轮唯一可能连累整体的动作，
+      // 所以排在所有外观动作之后，并且单独 try/catch。
+      // 写法与 yammory-system 插件一致：把注册塞进 ctx.effect 的回调——
+      // 该回调会立即执行（注册同步发生），返回的销毁函数被 effect 接管。
+      try {
+        ctx.effect(() => installSettingsSection(ctx), 'remielle-dan: settings section');
+        settingsState = 'ok';
+      } catch (e) {
+        settingsState = `failed: ${e && e.message ? e.message : e}`;
+        console.warn('[remielle-dan] 设置分区未注册（不影响主题）：', e);
+      }
 
       console.log(`[remielle-dan] 浏览器半边已激活（build ${BUILD_TAG}）`);
     };

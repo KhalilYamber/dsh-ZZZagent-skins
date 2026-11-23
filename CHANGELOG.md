@@ -4,6 +4,49 @@
 已发布过 `0.1.6`，此后按语义化版本递进：改视觉/修 bug 走 `0.1.x`，
 新增能力走 `0.2.x`，破坏性变更走 `0.x.0` 并在此说明。
 
+## [0.1.7] — 2026-11-23
+
+### 气泡透明度定值：55%，浮窗撤掉
+
+- 删除右下角的**气泡透明度浮窗**：`client.js` 里 `installBubbleControl`、`ALPHA_KEY`、
+  `readAlpha`、`writeAlpha` 全部移除。原先可调 20–90%，值存在 localStorage 的
+  `remielle:bubble-alpha` 键。
+- 启动时 `localStorage.removeItem('remielle:bubble-alpha')` 清掉旧键，不在用户机器上
+  留一个再也没人读的残留。
+- `patches.css` 的 `html[data-remielle-dan] { --remielle-bubble-alpha: 0.55; }` 成为唯一
+  取值来源，运行时不再有任何东西改写它。
+- 判定理由：这是一个只需要定一次的值。做成滑杆等于把一个一次性决定长期挂在界面上，
+  还多一套读写 localStorage 的分支要维护。**设一个数就够了，不再做滑杆。**
+
+### 新增官方设置页分区（只读占位）
+
+- `client.js` 用 `ctx.slots.inject('settings.section', ...)` + `ctx.slots.register(...)`
+  注册一个分区：`{ name: 'settings.section', id: 'remielle-dan', order: 40,
+  label: 'Remielle Dan' }`。组件是普通 React 函数组件，`require('react')` 取自宿主内置
+  模块，**不需要构建步骤**。
+- 模块级 `inject` 由 `[]` 改为 `['slots']`。
+- 分区内容只读：标题、一段说明、三行「外观 · 当前值」（用户气泡透明度 55% /
+  正文区底 `rgba(11, 18, 30, 0.3)` / 输入文字颜色 `rgb(255, 77, 77)`，运行时读计算样式，
+  读不到用兜底值）、两个禁用按钮（恢复默认外观 / 导出配置）、一行版本号。
+- **不接 `configForms`，不保存任何设置。** 这一版只是把分区挂上去，让人在官方设置页里
+  就能看见当前值，不必再为了看一眼状态去开浮窗。
+- 样式类 `.remielle-set*` 写在 `patches.css`，颜色全部走主题 token。
+- 注册放在 `apply()` 末尾并套独立 `try/catch`：失败只少一个设置分区，主题照常。
+  自报新增 `settingsSection`（`ok` / `failed: ...`）与 `bubblePanel: 'removed'`。
+- 契约依据：本机 `D:\GitHub_place\plugins\记忆系统\client\client.js`（yammory-system 插件，
+  同版本 DSH）的注册写法在 2449–2455 行，`require('react')` 在 26 行。照实证写，不照文档猜。
+- `BUILD_TAG` 同步 `0.1.7`。
+
+### 验证
+
+- `node --check`：`client.js` 通过。
+- `theme.css` 重新生成：31,158 字符、花括号 47/47、`.remielle-set` 规则 10 处。
+- 线上 `/remielle-dan/theme.css` 返回 200 且含新样式。
+- **验收（2026-11-23 20:0x，作者重启后）**：自报日志 `build=0.1.7`、
+  `settingsSection="ok"`、`bubblePanel="removed"`、`chatRegion=rgba(11, 18, 30, 0.3)`、
+  `paperCount=0`。即分区注册成功、浮窗代码确实没在跑、正文区底照旧。
+  `settings-001` 据此标 `passing`（分区内部排版细节未逐条核对，观感有异再调）。
+
 ## [0.1.6] — 2026-11-23
 
 ### 改变判定：一轮一纸退役，改为「正文区一层底」

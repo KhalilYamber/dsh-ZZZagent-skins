@@ -57,9 +57,9 @@ profile 的 package.json
   浏览器加载 client.js → factory → apply(ctx)
         │   1. <html> 打 data-remielle-dan
         │   2. <link rel=stylesheet href=/remielle-dan/theme.css>
-        │   3. <style> 背景层 + 气泡面板的基础规则
+        │   3. <style> 背景层的基础规则
         │   4. <div id=remielle-dan-bg>
-        │   5. 右下角气泡透明度面板
+        │   5. 向官方设置页注册 settings.section 分区（id remielle-dan）
         ▼
   样式生效
 ```
@@ -102,7 +102,7 @@ profile 的 package.json
 | 效果 | 机制 | 依赖的选择器 |
 |---|---|---|
 | 去掉那道暗带 | 删掉 `composerSeat:before` 的 `linear-gradient` + `backdrop-filter`，保留 `background: none`（压宿主自己的底色） | `[class*="composerSeat"]` |
-| 文字与光标变紫 `#7B5AA3` | 直接给编辑元素上 `color` / `caret-color` | `[data-composer-card]` |
+| 文字与光标变鲜红 `#FF4D4D` | 直接给编辑元素上 `color` / `caret-color` | `[data-composer-card]` |
 | 描边加粗 + 光晕 | 整条接管 `box-shadow`：`0 0 0 1.5px` 实边 + `0 0 20px -4px` 外发光 + `var(--dsw-shadow-lv2)` | `[data-composer-card]` |
 
 两个容易踩的点：
@@ -120,7 +120,7 @@ profile 的 package.json
 |---|---|
 | 临时关掉 | 从 `dsh.profile.bundles` 删 `"dsh-remielle-dan"` → 重启 |
 | 彻底卸载 | 再删 `dependencies` 里那条 → profile 目录跑 `pnpm install` |
-| 只回退视觉 | 纯 CSS 改动：改源（`skin.css` / `patches.css`）后跑 `node scripts/build-theme-css.mjs`，刷新即可（路由 `no-store`）。`client.js` 改动要重启 DSH；背景层、气泡面板、一轮一纸外框都在 `client.js`。 |
+| 只回退视觉 | 纯 CSS 改动：改源（`skin.css` / `patches.css`）后跑 `node scripts/build-theme-css.mjs`，刷新即可（路由 `no-store`）。`client.js` 改动要重启 DSH；背景层与设置页分区都在 `client.js`。 |
 | 回退整个 profile 配置 | `package.json.bak-remielle-20261122-1900` |
 
 ## 七、已验证与仍未知
@@ -196,4 +196,65 @@ profile 的 package.json
    `[data-disclosure-header]` 在当前版本源码里根本不存在，挂在它上面的两条规则从未生效。
 2. **删规则前先确认它有没有在起作用。** 0.1.5 为「纸」写的那批透明规则，
    在纸退役后只剩副作用（抹掉原生悬停、让排版偏离原生），所以整段删除而非保留。
+
+## 九、设置页分区（0.1.7）
+
+0.1.7 删掉了右下角的透明度浮窗，改为向 DSH 官方设置页注册一个分区。分区目前是
+**只读占位**：先把位置占住，可调的控件留待后续版本。
+
+### 槽与注册形状
+
+```
+ctx.slots.inject('settings.section', () => ctx.slots.register({
+  name: 'settings.section',
+  id: 'remielle-dan',
+  order: 40,
+  label: 'Remielle Dan',
+}, RemielleSection));
+```
+
+组件是**普通 React 函数组件**，作为 `register` 的第二个参数传入；它不是配置、也不用构建。
+
+| 字段 | 取值 | 理由 |
+|---|---|---|
+| `name` | `settings.section` | 官方设置页的分区槽，写别的名字不会出现在设置里 |
+| `id` | `remielle-dan` | 与包名、client 模块 id、patch name 同一串，出问题好对照 |
+| `order` | `40` | 设置页按 order 升序排；yammory-system 用 `16`，我们排在它后面，不插队 |
+| `label` | `Remielle Dan` | 设置页里显示的分区名 |
+
+模块级 `inject` 也从 `[]` 改成 `['slots']`——注册要用到 slots 服务。
+
+### React 从哪来
+
+`require('react')` 由宿主的模块系统提供（同版本 DSH 实证，不是打包进来的），
+拿到的就是宿主那份 React，所以可以直接 `createElement`、不需要 JSX、也没有构建步骤。
+
+### 为什么不接 configForms
+
+分区现在是只读的：三行「外观 · 当前值」+ 两个禁用按钮 + 一行版本号，不保存任何东西。
+既然存不住，就不注册 `configForms`——注册了却写不回去，看起来像坏了，比没有更糟。
+
+三个值是**渲染时现读**页面计算样式拿到的（`--remielle-bubble-alpha`、正文区背景色、
+输入文字颜色），读不到才退到写死的兜底 `0.55` / `rgba(11, 18, 30, 0.3)` / `rgb(255, 77, 77)`。
+这样以后改 CSS，设置页不会显示旧数字；代价是这行数字反映的是「当前页面」而非「配置里的值」。
+
+### 失败降级
+
+整段注册放在 `apply()` 的**末尾**，并包在独立的 `try/catch` 里。它是本轮唯一可能连累
+整体的地方，所以放在最后：失败只会少一个设置分区，主题照常生效。
+结果会写进前端自报：`settingsSection` 为 `ok` 或 `failed: …`，另有 `bubblePanel: 'removed'`。
+
+顺带：浮窗当年写的 localStorage 键 `remielle:bubble-alpha` 在启动时 `removeItem` 清掉，
+免得以后有人以为还有东西在读它。气泡透明度本身固定在 `patches.css` 的
+`html[data-remielle-dan] { --remielle-bubble-alpha: 0.55; }`，运行时没有东西再改写它。
+
+### 样式放在哪
+
+分区的样式类 `.remielle-set*` 全部写在 `patches.css`，`client.js` 只写结构。
+两个原因：样式仍旧归生成产物管（改源 → 跑生成脚本）；也不把一大段 CSS 塞进 JS。
+
+### 依据
+
+契约抄自本机已在工作的 yammory-system 插件 `D:\GitHub_place\plugins\记忆系统\client\client.js`
+（同版本 DSH，非猜测）：它的注册在 `2449–2455` 行，`require('react')` 在 `26` 行。
 

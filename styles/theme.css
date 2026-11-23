@@ -581,7 +581,11 @@ html[data-remielle-dan] body::selection { background: rgba(221, 143, 172, 0.38);
 
 /* 气泡透明度（0–1）：只声明在 html 上，刻意不写进 skin.css 的 token 块。
    生成脚本会把 token 块在 html 与 body 各写一份；若 body 也声明这个变量，
-   client.js 写在 html 内联样式上的滑杆值会被 body 的声明盖掉。 */
+   内联样式上的值会被 body 的声明盖掉。
+
+   0.1.7：这就是**定值**。作者定在 55%，原来那个右下角浮窗（能拖 20–90%）
+   已整套删除，运行时不再有任何东西改写它。设置页目前只读展示这个值；
+   将来要在设置页里调，读写的也是这一个变量。 */
 html[data-remielle-dan] {
   --remielle-bubble-alpha: 0.55;
 }
@@ -714,6 +718,74 @@ a {
   a {
     transition: none;
   }
+}
+
+/* ── 设置页：Remielle Dan 分区（0.1.7）──────────────────────────────────
+   这个分区由 client.js 通过官方槽 settings.section 注册，标记写在 JS 里；
+   样式按分工只放这里。颜色一律走主题 token，不写死——这样它跟界面一起变。
+   目前整块是只读的：三行「当前值」+ 两个禁用按钮占位。 */
+.remielle-set {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 20px;
+  border-radius: var(--dsw-radius-lg, 14px);
+  background: var(--dsw-alias-bg-layer-1);
+  border: 1px solid var(--dsw-alias-border-l1);
+}
+.remielle-set-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary);
+}
+.remielle-set-desc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--dsw-alias-label-secondary);
+}
+.remielle-set-group {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary);
+}
+.remielle-set-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-2);
+  font-size: 13px;
+}
+.remielle-set-k { color: var(--dsw-alias-label-secondary); }
+.remielle-set-v {
+  color: var(--dsw-alias-label-primary);
+  font: 12.5px/1.4 ui-monospace, Consolas, monospace;
+}
+.remielle-set-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+/* 占位按钮：看得见、点不动，也不给 hover 反馈——一眼就知道还没接上 */
+.remielle-set-btn {
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-secondary);
+  font-size: 13px;
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.remielle-set-note {
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--dsw-alias-label-tertiary);
 }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {

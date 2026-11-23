@@ -16,7 +16,7 @@ host.js                 宿主半边。export default { inject:['webServer'], ap
                         /remielle-dan/report（前端自报，写 .client-report.log）
 client.js               浏览器半边。window.__ModuleLoader__.load({id, factory})，
                         最后 exports.apply / exports.inject / return module.exports。
-                        除背景层外，还挂气泡透明度面板。**不碰聊天区 DOM**：
+                        除背景层外，向官方设置页注册 Remielle Dan 分区。**不碰聊天区 DOM**：
                         不插节点、不挂 class、不装观察器（0.1.6 起）
 styles/theme.css        ★ 运行时样式，**生成产物**（勿手改）。token 块 + body 规则 + patches 全文
 scripts/build-theme-css.mjs   生成 theme.css 的脚本（改完源文件跑它）
@@ -64,6 +64,11 @@ README / AGENTS / ARCHITECTURE / CHANGELOG
    **这是踩过的坑，不要"优化"掉其中一份。**
 5. **patches.css 里的选择器是全局的**（`[id="root"]`、`a`、`:focus-visible` 等）。
    这是上游设计：注入即生效、移除即复原。插件形态下"启用"就是"生效"，可以接受。
+6. **设置页分区的样式类 `.remielle-set*` 写在 `patches.css`，不要写进 `client.js`。**
+   `client.js` 只写结构（`require('react')` + `createElement`），颜色走主题 token
+   （`--dsw-alias-bg-layer-1/2`、`--dsw-alias-border-l1/l2`、
+   `--dsw-alias-label-primary/secondary/tertiary`）。
+   样式留在源文件里，才能跟着生成脚本走、改了什么有据可查。
 
 ## 已知耦合点（改之前先读）
 
@@ -79,6 +84,7 @@ README / AGENTS / ARCHITECTURE / CHANGELOG
 | `[data-conversation-region="chat"]` | 正文区容器（`ConversationContent.tsx` 挂在 `.body` 上，包住滚动区与 composer 座位）；`stop-shortcut.ts` 依赖它 | **正文区那一层底消失**，一轮又读成几片；不会崩 |
 | `[data-chat-flow-kind]` | 消息节点的种类属性（`ChatNodeSeat.tsx`） | 用户气泡选择器不命中 |
 | `data-pending-steering` / `data-submission-echo` | pending 用户回显的 `userRow` | `/plan` 后的消息没有气泡 |
+| `settings.section` 槽 | 设置页分区注册点（`ctx.slots.inject(...)` + `ctx.slots.register(...)`） | 分区不出现，主题不受影响 |
 
 依据来源：DSH 仓库 `deepseek-ai/deepseek-harness`，tag **`dsh-v0.2.2-rc.5`**（与本机版本一致）。
 关键文件：`packages/client/ui-conversation/src/client/skeleton/InputBar.tsx`、
