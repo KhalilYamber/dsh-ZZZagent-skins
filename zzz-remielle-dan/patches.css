@@ -1,10 +1,22 @@
 /* patches — DOM-level glass polish.
    Injected by the dsh-remielle-dan plugin (not by skin-center any more): it is
-   generated into styles/theme.css and removed when the plugin is disabled, so
-   every selector here is global (no body-attribute scoping). */
+   generated into styles/theme.css and removed when the plugin is disabled.
+   默认全局（注入即生效、移除即复原）；少数规则带 html[data-remielle-dan] 前缀，
+   只为权重与「关掉后不残留」，不是另一套作用域。 */
 
 [id="root"] {
   background: none;
+}
+
+/* 窗口底：Windows 标题栏形态下，AppFrame 的 .frame 会拿侧栏填充色给整个窗口
+   垫一层（AppFrame.module.css:27-32）。侧栏填充调到 0.42 后，这层会把聊天区
+   四周的留白一起压暗，壁纸不再是原样。
+   这里只撤 frame 的底：侧栏列（.sidebarCol）与标题栏条（.frame::before）各自
+   仍用 0.42，聊天区的留白回到原生壁纸，零遮罩。
+   选择器用「frame 是唯一直接包含 [data-shell-bottom] 的 div」锁定，不依赖
+   构建哈希类名（AppFrame.tsx:325 的 bottomRow 是 frame 的直接子节点）。 */
+[data-windows-titlebar] div:has(> [data-shell-bottom]) {
+  background: transparent !important;
 }
 
 /* 靠上这一块原本铺着一条深色横带：composerSeat 的 :before 用
@@ -17,30 +29,54 @@
   background: none !important;
 }
 
-/* ── 正文区的一层底（A1，2026-11-23）────────────────────────────────────
-   为什么需要它：DSH 原生没有包住一轮的容器。一轮 AI 回复是一排同级行
-   （过程头、工具调用、正文、耗时行），行间留 4 / 12 / 16px 的缝。
-   缝之所以看不见，是因为正文面板本身有一层不透明的底
-   （ConversationRoot.module.css 的 .root: background: var(--dsw-alias-bg-base)）。
-   0.1.5 把这个 token 改成 transparent，缝就露成壁纸，一轮被读成几片。
-   这里只把那一层补回正文区：不动整窗外壳，也不恢复上游那层 0.28 的渐变纱。
-   挂载点 data-conversation-region="chat" 来自 ConversationContent.tsx，
-   它包住滚动区与 composer 座位；DSH 自己的样式表没有任何规则挂这个属性，
-   且 stop-shortcut.ts 依赖它（Esc 停止），属于承重属性。
-   改深浅只改这一个 alpha：0.18 偏画 / 0.30 平衡 / 0.45 偏字。 */
+/* ── 正文区的底：2026-11-25 起不再画在这一层 ──────────────────────────────
+   结构事实：DSH 原生没有包住一轮的容器，一轮回复是一排同级行，行间留
+   4 / 12 / 16px 的缝；缝之所以看不见，靠的是面板的底。
+   data-conversation-region="chat" 来自 ConversationContent.tsx:196-204，
+   它把滚动区与 composer 座位一起包住。所以底画在这里，就永远做不成
+   「只包消息的板」，输入卡会被一起关进板里。
+   0.2.1 把底挪到消息流本身（[data-chat-flow]，见下一条），这里必须留空，
+   否则两层叠加，板子浮不起来。 */
 [data-conversation-region="chat"] {
-  background-color: rgba(11, 18, 30, 0.30);
+  background-color: transparent;
 }
 
-/* ── 输入区改色：文字 + 边框 ─────────────────────────────────────────────
+/* ── 对话板：学 kimino 的「整条消息流一张板」（2026-11-25）───────────────
+   画在 [data-chat-flow] 上。它就是 ChatView 的 .column（ChatView.tsx:244），
+   只包消息流、不包输入座位，所以板外就是壁纸。
+   坑：同样的属性也出现在 ChatGroupSeat 的组内容层（ChatGroupSeat.tsx:202，
+   同一元素还带 data-step-process-content）。不排除的话，每个过程组会各长出
+   一圈框，变成「板中板」。所以第二条用 :not() 把它排掉。
+   第一条是兜底：把两处 [data-chat-flow] 上可能残留的板压成 0（别的主题
+   写过同样选择器时也压得住），第二条再只给列上板。
+   不要加 backdrop-filter：作者要的是透明，不是毛玻璃。 */
+html[data-remielle-dan] [data-chat-flow] {
+  background-color: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html[data-remielle-dan] [data-chat-flow]:not([data-step-process-content]) {
+  box-sizing: border-box;
+  background-color: rgba(11, 18, 30, 0.30) !important;
+  border: 1px solid rgba(103, 220, 231, 0.12) !important;
+  border-radius: 20px !important;
+  padding: 12px 14px 20px !important;
+  box-shadow: var(--dsw-shadow-lv2) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* ── 输入区改色：文字 + 卡片 ─────────────────────────────────────────────
    文字当前是鲜红 #FF4D4D（2026-11-23 作者改定；此前是紫 #7B5AA3）。
-   为什么挂在 composerSeat 下而不是改 token：输入文字用的是全局正文色
+   为什么挂在输入卡片而不是改 token：输入文字用的是全局正文色
    （--dsw-alias-label-primary），改那个开关会把整个界面的字一起染色。
    所以用「容器 + 内联元素」两层限定，只命中输入框自己。
-
-   文字：直接落在真正承载文本的元素上（textarea 或 contenteditable）。
-   边框：用 :has() 找「包着编辑区的那一张卡片」，给它上 border-color；
-        同时补一条 inset 阴影，兜住「原本用 box-shadow 当边框」的写法。 */
+   卡片本体的底/边/圆角见下面那条 html[data-remielle-dan] [data-composer-card]。 */
 /* 文字：作用域挂在输入卡片本身（data-composer-card），不用 [data-phase="active"]。
    原因：data-phase 有三个值（settling / hero / active），新会话是 hero——
    若挂 active，欢迎页那个大输入框里的字不会变色，发第一条消息时才突然变紫。
@@ -58,26 +94,22 @@
    2026-11-23 作者判定「没什么用」，已撤。记录在此免得再试一次——
    字的可读性主要由字本身的亮度、以及它与底的关系决定，光晕只是边缘修饰。 */
 
-/* 边框：卡片源码里写着 border: 0 —— 那条细线其实是 elevation 系统的发丝描边，
-   颜色由 --dsw-elevation-stroke-color 决定。改 border-color 不会有任何效果
-   （没有 border 宽度可画）。
-   [data-composer-card] 是 DSH 源码里的稳定属性（InputBar.tsx），
-   不受 CSS Modules 哈希影响，也不随类名重构而变。
-   依据：packages/client/ui-conversation/src/client/skeleton/InputBar.module.css
-   的 .card 规则（border:0 / border-radius: var(--dsw-radius-panel) /
-   --dsw-elevation-stroke-color: var(--dsw-alias-border-l2)）。 */
-[data-composer-card] {
-  /* 保留原来的描边变量（有些 elevation 层仍会读它），同时接管整条 box-shadow。 */
+/* 输入卡：2026-11-25 接管，形态向 kimino 靠（1px 细边 + 圆角 20 + 半透明底），
+   配色仍用本主题的紫与 input-major。
+   原来的写法是 1.5px 紫边 + 紫色光晕；kimino 没有光晕、边也更细，所以收细、
+   去光晕。底色必须显式写：宿主 .card 读的是 --dsw-specific-input-major，
+   不写就会被别的主题的 background !important 盖掉。
+   [data-composer-card] 是 DSH 源码里的稳定属性（InputBar.tsx:462），
+   依据 InputBar.module.css 的 .card 规则（border:0 / background:
+   var(--dsw-specific-input-major) / border-radius: var(--dsw-radius-panel)）。 */
+html[data-remielle-dan] [data-composer-card] {
   --dsw-elevation-stroke-color: #7B5AA3 !important;
-
-  /* 三层叠加，顺序不能乱（先写的在上层）：
-       1. 1.5px 实心描边——border:0 的卡片只能靠外扩阴影画边；
-       2. 紫色光晕——负 spread 让边缘收进去，避免糊成一团；
-       3. 原有柔和投影，用主题自己的 lv2 代，避免引用可能不存在的宿主变量。 */
-  box-shadow:
-    0 0 0 1.5px #7B5AA3,
-    0 0 20px -4px rgba(123, 90, 163, 0.65),
-    var(--dsw-shadow-lv2) !important;
+  background-color: var(--dsw-specific-input-major) !important;
+  border: 1px solid rgba(123, 90, 163, 0.55) !important;
+  border-radius: 20px !important;
+  box-shadow: var(--dsw-shadow-lv2) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 /* ── 用户气泡：包住每条用户消息（作者要求，形态借鉴聊天类 App）─────────────
@@ -101,11 +133,11 @@
    生成脚本会把 token 块在 html 与 body 各写一份；若 body 也声明这个变量，
    内联样式上的值会被 body 的声明盖掉。
 
-   0.1.7：这就是**定值**。作者定在 55%，原来那个右下角浮窗（能拖 20–90%）
-   已整套删除，运行时不再有任何东西改写它。设置页目前只读展示这个值；
-   将来要在设置页里调，读写的也是这一个变量。 */
+   0.1.7 起这就是**定值**，右下角那个能拖 20–90% 的浮窗已整套删除，运行时
+   不再有任何东西改写它。2026-11-25 从 55% 调到 62%：向 kimino 的气泡实度
+   靠齐，气泡更实一点、字更站得住。设置页仍只读展示这个值。 */
 html[data-remielle-dan] {
-  --remielle-bubble-alpha: 0.55;
+  --remielle-bubble-alpha: 0.62;
 }
 
 /* 用户气泡本体：DSH 自带的文本气泡（UserContent.tsx 把 data-message-bubble
@@ -118,8 +150,8 @@ html[data-remielle-dan] {
   max-width: 100%;
   padding: 10px 16px;
   border-radius: 22px;
-  background-color: rgba(29, 51, 79, var(--remielle-bubble-alpha, 0.55));
-  border: 1px solid rgba(103, 220, 231, 0.1);
+  background-color: rgba(29, 51, 79, var(--remielle-bubble-alpha, 0.62));
+  border: 1px solid rgba(103, 220, 231, 0.35);
   box-shadow: var(--dsw-shadow-lv1);
 }
 
@@ -138,8 +170,8 @@ html[data-remielle-dan] {
   margin-left: auto;
   padding: 10px 16px;
   border-radius: 22px;
-  background-color: rgba(29, 51, 79, var(--remielle-bubble-alpha, 0.55));
-  border: 1px solid rgba(103, 220, 231, 0.1);
+  background-color: rgba(29, 51, 79, var(--remielle-bubble-alpha, 0.62));
+  border: 1px solid rgba(103, 220, 231, 0.35);
   box-shadow: var(--dsw-shadow-lv1);
 }
 
@@ -238,10 +270,12 @@ a {
   }
 }
 
-/* ── 设置页：Remielle Dan 分区（0.1.7）──────────────────────────────────
+/* ── 设置页：Remielle Dan 分区（0.1.7 建，0.2.0 加开关）──────────────────
    这个分区由 client.js 通过官方槽 settings.section 注册，标记写在 JS 里；
    样式按分工只放这里。颜色一律走主题 token，不写死——这样它跟界面一起变。
-   目前整块是只读的：三行「当前值」+ 两个禁用按钮占位。 */
+   0.2.0 起顶部是真开关（主题外观），下面是只读的当前值；
+   「导出配置」仍是禁用占位。注意：关掉主题时这份样式表会被摘下，
+   所以分区在关闭态是**原生外观**、没有卡片底——那是刻意的，见 ARCHITECTURE 第十节。 */
 .remielle-set {
   display: flex;
   flex-direction: column;
@@ -288,14 +322,19 @@ a {
   gap: 10px;
   margin-top: 4px;
 }
-/* 占位按钮：看得见、点不动，也不给 hover 反馈——一眼就知道还没接上 */
+/* 分区里的按钮：默认可点（主题开关用它）；带 disabled 的才是占位——
+   看得见、点不动，也不给 hover 反馈，一眼就知道还没接上。 */
 .remielle-set-btn {
   padding: 6px 14px;
   border-radius: 8px;
   border: 1px solid var(--dsw-alias-border-l2);
   background: var(--dsw-alias-bg-layer-2);
-  color: var(--dsw-alias-label-secondary);
+  color: var(--dsw-alias-label-primary);
   font-size: 13px;
+  cursor: pointer;
+}
+.remielle-set-btn[disabled] {
+  color: var(--dsw-alias-label-secondary);
   cursor: not-allowed;
   opacity: 0.55;
 }

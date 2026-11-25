@@ -4,6 +4,105 @@
 已发布过 `0.1.6`，此后按语义化版本递进：改视觉/修 bug 走 `0.1.x`，
 新增能力走 `0.2.x`，破坏性变更走 `0.x.0` 并在此说明。
 
+## [0.2.1] — 2026-11-25
+
+三处向 kimino 靠齐：**形照搬、色不改、不学毛玻璃**。
+
+### 消息区：板从正文区外壳挪到消息流本身
+
+- 0.1.6 把底画在 `[data-conversation-region="chat"]` 上。那一层把滚动区与输入座位
+  一起包住，输入卡被关在板里。这一版把板移到 `[data-chat-flow]`（`ChatView.tsx:244`
+  的 `.column`），输入座位在板外，板外直接是壁纸。
+- 板：`rgba(11,18,30,0.30)` + 1px `rgba(103,220,231,0.12)` + 圆角 20 +
+  内边距 12/14/20 + `--dsw-shadow-lv2`；**没有 `backdrop-filter`**。
+- `[data-chat-flow]` 还有一个落点是 `ChatGroupSeat.tsx:202` 的组内容层，选择器用
+  `:not([data-step-process-content])` 排除，否则过程组会各长一圈框。
+- `[data-conversation-region="chat"]` 改成 `transparent`，避免两层叠加。
+
+### 左栏与输入卡
+
+- `--dsw-specific-sidebar-fill`：0.10 → 0.42（向 kimino 的侧栏实度靠齐）。这个 token
+  还画着 Windows 标题栏条、任务页信息框、轨迹表头、拖拽预览，会一起变实。
+- 窗口底：Windows 标题栏形态下 AppFrame 的 `.frame` 也拿这个 token 给整个窗口垫底，
+  0.42 会把聊天区四周的留白一起压暗。补一条
+  `[data-windows-titlebar] div:has(> [data-shell-bottom]) { background: transparent }`，
+  聊天区留白回到原生壁纸；侧栏列与标题栏条仍保留 0.42。
+- 输入卡：1.5px 紫边 + 光晕 → 1px `rgba(123,90,163,0.55)` + 圆角 20 +
+  `--dsw-shadow-lv2`；底色显式写回 `var(--dsw-specific-input-major)`，去掉模糊。
+- 用户气泡：透明度 0.55 → 0.62，描边 0.1 → 0.35（青）。
+
+### 字标与徽章：墨色/填充配对修正
+
+- `--dsw-alias-label-primary-inverted`：`#F8F3F5` → `#071321`；
+  `--dsw-alias-button-contrast-fill`：`#1e6069` → `#F8F3F5`。
+- 宿主把这两个当一对用：浅底 + 深字。原来两个都翻成了「浅字 / 深底」，
+  附件关闭按钮能看，但官方字标里的 HARNESS 徽章变成白底白字。
+- 覆盖四处：字标徽章、侧栏版本徽章、liveshare 版本徽章、附件卡片关闭按钮。
+- 副作用：附件关闭按钮由深青底浅字改为浅底深字（回到宿主原本的方向）。
+
+### 与 kimino 的关系
+
+- 两套是**两个独立 bundle**。同一时刻两套都挂载时，页面由两边规则共同决定；
+  kimino 当前不在 `dsh.profile.bundles` 里，所以本版没有为共存加对压规则。
+- 版本 `0.2.1`，`BUILD_TAG` 同步。
+
+## [0.2.0] — 2026-11-24
+
+按本文件自己的规则，新增能力走 `0.2.x`：这一版加的是一样**能力**（运行时开关），不是视觉微调。
+
+### 设置页新增「主题外观」运行时开关
+
+- 起因是作者的一句话：不要每次不想用这套外观时，都特地叫 agent 来拔插件效果。
+  于是在已有分区的顶部放了一个真按钮：「关闭主题外观 / 开启主题外观」，
+  点击即时生效——不刷新、不重启、不改 profile。
+- **关 = 四件一起摘**：`html[data-remielle-dan]` 属性、`theme.css` 的 `<link>`、
+  `BASE_CSS` 的 `<style>`、`#remielle-dan-bg`。少摘一件都会「半脱」，
+  逐条原因写在 `ARCHITECTURE.md` 第十节。
+- `client.js` 新增 `createThemeRuntime()`：`attach()` 按 1→4 建、`detach()` 按 4→1 拆
+  （先撤壁纸、再撤透明规则、最后撤样式表与属性）；`setEnabled()` 写存储并通知订阅方；
+  `dispose()` 供插件禁用时总清。`apply()` 里原来的四条 `ctx.effect` 合并成一条。
+- 状态存 `localStorage['remielle-dan:enabled']`，值 `'1'` / `'0'`，缺省按「开」。
+  读不到（隐私模式、配额）就当开。跨窗口用 `storage` 事件同步，只跟状态、不回写存储。
+- 关闭态**根本不创建**节点，所以关着启动不会先闪一下主题，也不会发那次样式表请求。
+- 分区组件改用 `React.useState` / `useEffect`（宿主 Builtins 目录有登记；
+  同版本另有实证：记忆系统插件的槽组件就在用）。关闭态隐藏「当前值」三行——
+  那三个数是现读计算样式拿的，主题一关就全退到兜底值，显示出来是错数字。
+- 关闭态的分区没有自定义样式（`.remielle-set*` 随 `theme.css` 一起被摘掉），
+  以原生元素显示。这是刻意的：注册与样式解耦，开关才不会把「开回主题」的钥匙锁在里面。
+- 自报新增 `themeEnabled`、`hasUseState`；`layer` 语义改为「背景层此刻在不在」；
+  每次切换延后 400ms 补一条自报（等样式表落地再采，否则会把「开了」记成「没生效」），
+  `.client-report.log` 里能直接看到翻转记录。
+- 版本 `0.2.0`，`BUILD_TAG` 同步。
+
+### 样式
+
+- `patches.css` 的 `.remielle-set-btn` 拆成两条：基础态可点（`cursor: pointer`、主文字色），
+  `[disabled]` 保留原有占位观感（次要色、`not-allowed`、`opacity: .55`）。
+  「导出配置」仍是禁用占位，不受影响。
+- `styles/theme.css` 重新生成：31,375 字符、花括号 48/48。
+
+### 验证
+
+- `node --check`（按 ESM 复制成 `.mjs`）：`client.js`、`host.js` 均通过。
+- `package.json` 解析通过：`0.2.0` / `main=./host.js` / `immediately=true`。
+- 生成幂等：连跑两次 `build-theme-css.mjs`，文件哈希一致。
+- `theme.css` 自检：`.remielle-set-btn` 2 处、`[disabled]` 1 处、行首裸 `:root` 0 处、裸 `body` 0 处。
+- 线上 `/remielle-dan/theme.css` 返回 200（38,455 字节）且含新按钮规则。
+- 冒烟：把 `client.js` 放进假 DOM 里跑一遍（临时脚本，不随仓库分发），28 项断言全过——
+  启动挂四件且不写存储、`storage` 事件能卸干净再装回、点按钮真的写 `'0'`/`'1'` 并摘/装、
+  关闭态不渲染「当前值」、关闭态的自报能正常发出（`bg` 为 null 也不崩）、
+  `dispose()` 后四件全清。
+- **实测（2026-11-24 21:22–22:19，真机，取自 `.client-report.log`）**：
+  `themeEnabled` 在 21:22–21:23 之间翻转 6 次，每次 `layer` 都跟它同步
+  （开 = `true/true`，关 = `false/false`），没出现过「有底色没壁纸」那种半脱；
+  关闭态下 `body` 与外壳底色回到原生 `rgb(21, 21, 23)` / `rgb(27, 27, 28)`。
+  21:31、22:08、22:19 三次重启的自报都是 `themeEnabled=false`、`layer=false`：
+  「关」被记住，关着启动时一件都不建。`hasUseState` 全程为 `true`。
+  作者随后一直在关闭态使用，功能正常、未报异常。
+- 环境记录：本工作区的 `pwsh` 一开始因沙箱 ACL 授权失败无法启动
+  （`grantWrite(D:\GitHub_place\plugins\dsh-ZZZagent-skins)`），
+  生成脚本与自检改用放宽权限执行。
+
 ## [0.1.7] — 2026-11-23
 
 ### 气泡透明度定值：55%，浮窗撤掉

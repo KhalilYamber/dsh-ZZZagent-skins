@@ -127,7 +127,10 @@
   --dsw-alias-brand-primary-new-colorprimary-new-color: #67DCE7;
   --dsw-alias-brand-primary: #67DCE7;
   --dsw-alias-brand-text: #dcf8fa;
-  --dsw-alias-button-contrast-fill: #1e6069;
+  /* 与 label-primary-inverted 成对：宿主暗色主题里「对比填充」是浅色，上面的字是深色。
+     原来写成深青 #1e6069，和 inverted 的浅色构成另一种配法，会让「浅底 + inverted 字」
+     的那些（字标徽章、版本徽章）变成白底白字。这里翻回宿主的配对。 */
+  --dsw-alias-button-contrast-fill: #F8F3F5;
   --dsw-alias-button-elevated-fill: #14243b;
   --dsw-alias-button-floating-fill: #0d1a2e;
   --dsw-alias-button-floating-hover: #172a43;
@@ -152,7 +155,9 @@
   --dsw-alias-label-primary-bluish: #dcf8fa;
   --dsw-alias-label-primary-dimmed: #adbfd6;
   --dsw-alias-label-primary-foreground: #071321;
-  --dsw-alias-label-primary-inverted: #F8F3F5;
+  /* inverted = 放在主色（浅底）上的字色，必须是深色；宿主暗色主题用 bluish-800。
+     它与上面的 button-contrast-fill 是一对：浅底 + 深字，两个要一起改。 */
+  --dsw-alias-label-primary-inverted: #071321;
   --dsw-alias-label-primary: #F8F3F5;
   --dsw-alias-label-secondary: #C0CAD5;
   --dsw-alias-label-tertiary: #8997A7;
@@ -187,10 +192,12 @@
   --dsw-specific-login-input: rgba(13, 22, 39, 0.5);
   --dsw-specific-menu: var(--dsw-glass-float);
   --dsw-specific-selector: rgba(24, 31, 46, 0.5);
-  /* 侧栏底色。作者要求侧栏也透出壁纸（原来 0.36 的深蓝几乎把图挡住）。
-     调到 0.10：够淡、能看见画，又留一点托底让文字站得住。
-     想全透就改成 transparent；觉得字发飘就回到 0.18 左右。 */
-  --dsw-specific-sidebar-fill: rgba(17, 25, 39, 0.1);
+  /* 侧栏底色。2026-11-25：从 0.10 调到 0.42，向 kimino 的侧栏实度靠齐
+     （原来 0.10 太透，壁纸把字压得发飘）。色相仍是本主题的深蓝。
+     注意这个 token 不只画侧栏：DSH 的 AppFrame 还拿它画 Windows 标题栏条
+     （AppFrame.module.css:31/45），任务页信息框、轨迹表头、拖拽预览也各用一次；
+     改它这四处会一起变实，绕不开。想更透就调小，想更实就调大。 */
+  --dsw-specific-sidebar-fill: rgba(17, 25, 39, 0.42);
   --dsw-specific-sidebar-nav-item-active-accent: #1f3a56;
   --dsw-specific-sidebar-nav-item-active: #1d334f;
   --dsw-specific-sidebar-nav-item-hover: #172a43;

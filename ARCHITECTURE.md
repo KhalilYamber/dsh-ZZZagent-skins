@@ -55,6 +55,7 @@ profile 的 package.json
         │   ctx.effect(() => dispose) 登记销毁
         ▼
   浏览器加载 client.js → factory → apply(ctx)
+        │   0. 读 localStorage['remielle-dan:enabled']（0.2.0 起）
         │   1. <html> 打 data-remielle-dan
         │   2. <link rel=stylesheet href=/remielle-dan/theme.css>
         │   3. <style> 背景层的基础规则
@@ -62,9 +63,13 @@ profile 的 package.json
         │   5. 向官方设置页注册 settings.section 分区（id remielle-dan）
         ▼
   样式生效
+
+第 0 步决定第 1–4 步做不做：存的是「关」就一件都不建，界面直接是原生的。
+第 1–4 步由设置页那个开关统一装卸，见第十节。
 ```
 
-**每一步副作用都挂在 `ctx.effect` 上**，注册对应的销毁函数。禁用插件后理论上页面能干净退回原生外观。
+**副作用都挂在 `ctx.effect` 上**：0.2.0 起只留一条总销毁（`theme.dispose()`，内部把四件一起摘），
+另有自报定时器与跨窗口监听的销毁。禁用插件后页面能干净退回原生外观。
 
 ## 四、背景层
 
@@ -103,13 +108,13 @@ profile 的 package.json
 |---|---|---|
 | 去掉那道暗带 | 删掉 `composerSeat:before` 的 `linear-gradient` + `backdrop-filter`，保留 `background: none`（压宿主自己的底色） | `[class*="composerSeat"]` |
 | 文字与光标变鲜红 `#FF4D4D` | 直接给编辑元素上 `color` / `caret-color` | `[data-composer-card]` |
-| 描边加粗 + 光晕 | 整条接管 `box-shadow`：`0 0 0 1.5px` 实边 + `0 0 20px -4px` 外发光 + `var(--dsw-shadow-lv2)` | `[data-composer-card]` |
+| 1px 紫细边 + 圆角 20 | 卡片上直接写 `border: 1px` 与 `border-radius: 20px`，投影用 `var(--dsw-shadow-lv2)`；0.2.1 起没有光晕 | `[data-composer-card]` |
 
 两个容易踩的点：
 
-1. **卡片没有边框宽度。** DSH 的 `.card` 写着 `border: 0`，那条细线是 elevation 系统的
-   发丝描边。所以只能改 `--dsw-elevation-stroke-color`，或者像现在这样整条接管
-   `box-shadow`；改 `border-color` 永远不会有任何效果。
+1. **卡片原本没有边框宽度。** DSH 的 `.card` 写着 `border: 0`，细线由 elevation 系统的
+   发丝描边画。0.2.1 起直接给卡片写 `border: 1px`（`box-sizing: border-box`，外层尺寸
+   不变），那条发丝就不需要了；`--dsw-elevation-stroke-color` 仍留着给别处读。
 2. **作用域不能挂 `data-phase="active"`。** `phase` 有三个值（`settling` / `hero` / `active`），
    新会话是 `hero`；挂 `active` 会让欢迎页的大输入框不生效。卡片属性
    `[data-composer-card]` 才是三种状态共有的。
@@ -118,7 +123,8 @@ profile 的 package.json
 
 | 目标 | 动作 |
 |---|---|
-| 临时关掉 | 从 `dsh.profile.bundles` 删 `"dsh-remielle-dan"` → 重启 |
+| 临时关掉外观 | 设置页 → Remielle Dan → 「关闭主题外观」（0.2.0 起，即时、不重启） |
+| 整个插件停用 | 从 `dsh.profile.bundles` 删 `"dsh-remielle-dan"` → 重启 |
 | 彻底卸载 | 再删 `dependencies` 里那条 → profile 目录跑 `pnpm install` |
 | 只回退视觉 | 纯 CSS 改动：改源（`skin.css` / `patches.css`）后跑 `node scripts/build-theme-css.mjs`，刷新即可（路由 `no-store`）。`client.js` 改动要重启 DSH；背景层与设置页分区都在 `client.js`。 |
 | 回退整个 profile 配置 | `package.json.bak-remielle-20261122-1900` |
@@ -131,10 +137,17 @@ profile 的 package.json
 2. ✅ **背景 `-1` 层没被界面容器挡住**——背景图可见。
 3. ✅ **`immediately: true` 装载即生效**——没在设置里点任何开关，界面就是主题外观。
 
+2026-11-24 又补上两件：
+
+4. ✅ **运行时开关能真正装卸**——自报里 `themeEnabled` 翻转六次，`layer` 每次都跟它同步，
+   关闭态下 `body` 与外壳底色回到原生值，没有出现半脱。
+5. ✅ **关闭态能跨重启保持**——21:31 / 22:08 / 22:19 三次重启的自报都是关，
+   且启动时一件都不建（`layer=false`、`veilTop="(无背景层)"`）。
+
 仍未未知的只剩一件：**DSH 升级后这些耦合点会不会断**。断了不会崩，表现是"某块不生效"，
 清单见 `AGENTS.md` 的「已知耦合点」。
 
-另外，消息区的形状（用户气泡 + 正文区一层底）见下一节。
+另外，消息区的形状（用户气泡 + 消息板）见下一节。
 
 ## 八、消息区：为什么是「一层底」而不是「一轮一框」
 
@@ -154,22 +167,33 @@ profile 的 package.json
 
 所以「一轮看起来是一整块」不是靠容器画出来的，是靠**底**托出来的。
 
-### 本项目怎么接
+### 本项目怎么接（0.2.1 起）
 
 0.1.5 把 `--dsw-alias-bg-base` 改成 `transparent`（为了让壁纸透上来），
-缝就露成壁纸，一轮被读成几片。0.1.6 的接法是只把那一层补回正文区：
+缝就露成壁纸，一轮被读成几片。0.1.6 把那一层补回正文区；0.2.1 又往下挪了一层：
 
 ```css
-[data-conversation-region="chat"] { background-color: rgba(11, 18, 30, 0.30); }
+[data-conversation-region="chat"] { background-color: transparent; }
+
+html[data-remielle-dan] [data-chat-flow]:not([data-step-process-content]) {
+  background-color: rgba(11, 18, 30, 0.30);
+  border: 1px solid rgba(103, 220, 231, 0.12);
+  border-radius: 20px;
+  padding: 12px 14px 20px;
+}
 ```
 
-- 挂载点 `data-conversation-region="chat"` 来自 `ConversationContent.tsx:191-207`，
-  它包住滚动区与 composer 座位。
-- DSH 自己的样式表里**没有规则挂这个属性**，而 `stop-shortcut.ts` 依赖它（Esc 停止），
-  属于承重属性，不易被随手改名。
-- 该容器（`.body`）自身没有背景声明（`ConversationRoot.module.css:458-475`），
-  所以这条规则同权重就够，不需要 `!important`。
-- 不恢复上游那层 0.28 的渐变纱，也不动整窗外壳，所以比上游明显更亮。
+- 挂载点 `[data-chat-flow]` 是 `ChatView.tsx:244` 的 `.column`（`max-width:
+  var(--dsh-chat-content-width)`、`margin: 0 auto`），只包消息流；输入座位是它的
+  兄弟分支，所以板外就是壁纸。kimino 画板用的也是这一层。
+- 为什么换层：`[data-conversation-region="chat"]` 把滚动区与 composer 座位一起包住
+  （`ConversationContent.tsx:196-204`），底画在那里，输入卡永远在板里。
+- **同一属性有两个落点**：`ChatGroupSeat.tsx:202` 的组内容层也带 `data-chat-flow`，
+  同元素还有 `data-step-process-content`。所以选择器必须带
+  `:not([data-step-process-content])`；不带的话每个过程组各长一圈框。
+- 不加 `backdrop-filter`：要的是透明，不是毛玻璃。
+- 板的内边距是 12/14/20；`.textInteraction` 是绝对定位的兄弟面，加内边距后
+  选区浮层可能偏移，验收时要专门选一段正文看。
 
 ### 用户气泡
 
@@ -178,7 +202,8 @@ profile 的 package.json
 - 前两类是 durable flowItem；后两类是 pending 回显的 `userRow`。
   `/plan` 之后的消息没气泡，就是漏了后两类。
 - 底、边、圆角、阴影都在 `patches.css` 的同一条规则里；不要只改其中一类。
-- 内层 `[data-message-bubble]` 被压成透明，否则里外两层会叠。
+- 0.1.7 起上底的是内层 `[data-message-bubble]`（`UserContent.tsx:47`）；外层只在
+  没有内层气泡时兜底，用 `:not(:has([data-message-bubble]))` 判。
 
 ### 已经作废的路线（不要再捡回来）
 
@@ -197,10 +222,11 @@ profile 的 package.json
 2. **删规则前先确认它有没有在起作用。** 0.1.5 为「纸」写的那批透明规则，
    在纸退役后只剩副作用（抹掉原生悬停、让排版偏离原生），所以整段删除而非保留。
 
-## 九、设置页分区（0.1.7）
+## 九、设置页分区（0.1.7 建，0.2.0 加开关）
 
-0.1.7 删掉了右下角的透明度浮窗，改为向 DSH 官方设置页注册一个分区。分区目前是
-**只读占位**：先把位置占住，可调的控件留待后续版本。
+0.1.7 删掉了右下角的透明度浮窗，改为向 DSH 官方设置页注册一个分区。分区最初是**只读占位**：
+先把位置占住，可调的控件留待后续版本。0.2.0 给它装了第一个真控件——主题外观开关
+（四件套怎么摘、状态存哪、关闭态长什么样，见第十节）；剩下的仍是只读展示。
 
 ### 槽与注册形状
 
@@ -231,11 +257,13 @@ ctx.slots.inject('settings.section', () => ctx.slots.register({
 
 ### 为什么不接 configForms
 
-分区现在是只读的：三行「外观 · 当前值」+ 两个禁用按钮 + 一行版本号，不保存任何东西。
-既然存不住，就不注册 `configForms`——注册了却写不回去，看起来像坏了，比没有更糟。
+`configForms` 存的是插件配置，读写在宿主侧，改完要重启或重载才生效；
+而这里要的是一个「点一下立刻换外观」的界面状态，落在这一页的浏览器存储里就够。
+注册了却要重启才认的控件，看起来像坏了，比没有更糟。（0.2.0 起的开关详见第十节。）
 
-三个值是**渲染时现读**页面计算样式拿到的（`--remielle-bubble-alpha`、正文区背景色、
-输入文字颜色），读不到才退到写死的兜底 `0.55` / `rgba(11, 18, 30, 0.3)` / `rgb(255, 77, 77)`。
+三个值是**渲染时现读**页面计算样式拿到的（`--remielle-bubble-alpha`、消息板背景色、
+输入文字颜色），读不到才退到写死的兜底 `0.62` / `rgba(11, 18, 30, 0.3)` / `rgb(255, 77, 77)`。
+自报里 `board` 字段就是这块板（0.2.1 起）；`chatRegion` 只剩「外壳是否透明」这一个用途。
 这样以后改 CSS，设置页不会显示旧数字；代价是这行数字反映的是「当前页面」而非「配置里的值」。
 
 ### 失败降级
@@ -246,7 +274,8 @@ ctx.slots.inject('settings.section', () => ctx.slots.register({
 
 顺带：浮窗当年写的 localStorage 键 `remielle:bubble-alpha` 在启动时 `removeItem` 清掉，
 免得以后有人以为还有东西在读它。气泡透明度本身固定在 `patches.css` 的
-`html[data-remielle-dan] { --remielle-bubble-alpha: 0.55; }`，运行时没有东西再改写它。
+`html[data-remielle-dan] { --remielle-bubble-alpha: 0.62; }`（0.2.1 从 55% 调到 62%），
+运行时没有东西再改写它。
 
 ### 样式放在哪
 
@@ -257,4 +286,75 @@ ctx.slots.inject('settings.section', () => ctx.slots.register({
 
 契约抄自本机已在工作的 yammory-system 插件 `D:\GitHub_place\plugins\记忆系统\client\client.js`
 （同版本 DSH，非猜测）：它的注册在 `2449–2455` 行，`require('react')` 在 `26` 行。
+
+## 十、运行时开关（0.2.0）
+
+作者原话是：不要每次想用原生外观时都要叫 agent 去拔插件。所以要一个按钮，
+点完即时卸掉外观，再点即时装回来，不重启、不动 profile。
+
+### 关掉的是哪四件
+
+| # | 东西 | 谁在用 |
+|---|---|---|
+| 1 | `<html data-remielle-dan>` | `theme.css` 的 token 块、气泡透明度变量都以它为作用域 |
+| 2 | `<link href=/remielle-dan/theme.css>` | token 重映射 + `patches.css` 全文（后者是**全局**的） |
+| 3 | `<style>` 里的 `BASE_CSS` | 把 `html` / `body` 的底色强制透明，好让壁纸透上来 |
+| 4 | `<div id="remielle-dan-bg">` | 壁纸那一层 |
+
+### 为什么必须同进同退
+
+- 只摘 1：token 回原生，但 `patches.css` 那部分是全局的，气泡、红字、紫描边全留着 → 半脱。
+- 只摘 2：第 3 件还在强制透明，第 4 件也已无处可画 → 整页透出浏览器画布。
+- 只摘 4：第 3 件仍强制透明，壁纸却没画 → 同一种透底。
+- 只摘 3：壁纸层还在、底色也还在，两套背景叠在一起。
+
+所以开关的实现是**一个运行时对象**（`client.js` 的 `createThemeRuntime`）：
+`attach()` 按 1→4 建，`detach()` 按 4→1 拆：先撤壁纸，再撤「把底色变透明」的那条规则，
+最后才让 token 回原生。整段是同一个任务里同步跑完的，浏览器不会在中间重绘；
+这个顺序的价值在于「万一以后有人在中间插了 await」，那时也不会出现半脱的一帧。
+
+### 状态存在哪
+
+`localStorage['remielle-dan:enabled']`，值 `'1'` / `'0'`，缺省按「开」。
+选它是因为要求「点完立刻生效」：禁用插件要重启，`configForms` 的配置落在宿主侧、
+改完也不是这一页的事。本插件 0.1.6 之前的浮窗本来就写过 localStorage，没有新依赖。
+
+两个边界：
+
+- 按 **origin** 各存一份。桌面端是 `dsh-app://app`，浏览器访问是 `http://127.0.0.1:<port>`，
+  两边各记各的；换端口也算换了一份。
+- 存储不可用（隐私模式、配额）时退化为「只管这一次」，界面照常。
+
+跨窗口用 `storage` 事件同步：另一个窗口动了开关，这个窗口跟着动，但**不回写**存储。
+
+### 关闭态的分区长什么样
+
+关掉之后 `theme.css` 被摘掉，`.remielle-set*` 那套样式也就没了，分区会以**原生元素**显示：
+标题、说明、状态行、按钮、版本号，只是没有卡片底与行距。
+
+这是刻意的取舍：分区注册与样式解耦，所以**开关本身永远点得动**——
+它不会把开回主题的那把钥匙一起锁在里面。代价是关闭态那一栏看起来就是普通设置项。
+
+关闭态还**隐藏**了「三行当前值」。那三个数是渲染时现读计算样式得到的，主题一关就全退到
+写死的兜底值（例如气泡透明度仍显示 62%，而气泡根本不存在）。宁可不显示，也不给错数字。
+
+### 为什么不走 configForms，也不靠禁用插件
+
+`configForms` 管的是「插件配置」，读写在宿主侧，改动要重启或重载才生效；
+禁用插件则要改 profile 再重启。两者都满足不了「点一下就好」。
+这里存的其实是**界面状态**（这一页要不要穿主题），不是需要审批的配置。
+
+### 会不会闪
+
+不会。`immediately: true` 让浏览器半边在启动时就跑，读到「关」就一件都不建——
+连样式表请求都不发。重新打开时才插 `<link>`，`no-store` 会重新取一次，
+那几十毫秒里页面仍是原生外观，不是「卡住」。
+
+### 证据
+
+自报 JSON 新增两个字段：`themeEnabled`（开关状态）与 `hasUseState`（hooks 前提是否成立），
+`layer` 的语义变成「背景层此刻在不在」。切一次开关就补一条自报，所以
+`.client-report.log` 里能直接看到 `themeEnabled` 的两次翻转，不必只靠肉眼。
+那条自报**延后 400ms 才采**：插入 `<link>` 到样式生效是异步的，立刻读完会拿到应用前的值
+（veil 变量还是「未定义」、正文区还是原生底色），日志就会把「开了」记成「没生效」。
 
