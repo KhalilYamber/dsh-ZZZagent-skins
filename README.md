@@ -55,7 +55,7 @@ client.js             浏览器半边：打标记 → 挂样式 → 铺背景层
 styles/theme.css       运行时样式，**生成产物**（勿手改；跑 scripts/build-theme-css.mjs 重生成）
 scripts/build-theme-css.mjs  生成 theme.css 的脚本：改完源文件跑它
 scripts/smoke-host-wallpaper.mjs    冒烟：宿主半边（假 webServer + 真 HTTP，32 项断言）
-scripts/smoke-client-wallpaper.mjs  冒烟：浏览器半边（假 DOM + 假 React，18 项断言）
+scripts/smoke-client-wallpaper.mjs  冒烟：浏览器半边（假 DOM + 假 React，21 项断言）
 
 zzz-remielle-dan/     源文件与素材（不是可安装的皮肤，别往皮肤中心放）
   skin.css               token 源文件
