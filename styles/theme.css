@@ -567,6 +567,64 @@ html[data-remielle-dan] [data-chat-flow]:not([data-step-process-content]) {
   -webkit-backdrop-filter: none !important;
 }
 
+/* ── 过程组：每组一块圆角深底（2026-11-27 作者要求）────────────────────────
+   形状来源：作者给的参考图（kimino）把一轮里散落的过程行——运行命令 /
+   搜索文件内容 / 思考·结果——包进同一块圆角深底，读作一个整体，而不是
+   一行行浮在壁纸上。要求照此形状做。
+   唯一改动：底不做实心。用半透明，壁纸仍从块底透出来，透的程度对齐
+   用户气泡那一档（同一个 --remielle-bubble-alpha，默认 0.62）。
+
+   落点：ChatGroupSeat 的 .root（ChatGroupSeat.tsx:194）上的 data-step-process。
+   核对过三件事：
+     ① 该属性在源码里只出现一次，且与 data-step-process-body / -content /
+        -icon / -chevron 是不同的属性名，不会互相命中；
+     ② .root 是「总是渲染」的：最新轮尚未分组时标题不显示（grouped=false
+        只控制标题与高度上限），body 照渲染；历史轮折叠时只剩标题一行，
+        那块底就收成一枚胶囊。两种形态都是想要的；
+     ③ 不要改用 data-step-process-content：那是内层内容层，会漏掉标题行，
+        而且它带 data-chat-flow，会被上面「把 [data-chat-flow] 压平」那条清掉；
+     ④ 作者截图里那三行（运行命令 / 搜索文件内容 / 思考·结果）判为同一组的
+        三个成员，不是三个组：它们共用一个深底、图标各异、纵向间距贴着组内
+        的 4px 档（组外兄弟是 4/12/16px）。若这条判断错，底会碎成三枚小胶囊，
+        验收时一眼就能看出来。
+
+   为什么不给 .root 加 overflow:hidden：body 自己就是滚动容器
+   （max-height:min(400px,50vh) + overflow-y:auto），滚动内容在 body 盒子里
+   已被裁过，不会溢出圆角；再加一层 clip 只是白担风险。
+   backdrop-filter 依旧不加：作者要透明，不要毛玻璃。
+
+   字提亮：参考图里标签近白、参数浅灰，分两层。做法是只在组内覆盖这两个
+   token，不碰任何组件样式，也不污染组外——自定义属性按最近的祖先生效，
+   所以在 [data-step-process] 上重新声明，只作用于该组内部。 */
+html[data-remielle-dan] [data-step-process] {
+  box-sizing: border-box;
+  background-color: rgba(29, 51, 79, var(--remielle-bubble-alpha, 0.62)) !important;
+  border: 1px solid rgba(103, 220, 231, 0.16) !important;
+  border-radius: 14px !important;
+  padding: 8px 12px !important;
+  --dsw-alias-label-tertiary: #AEBECD;
+  --dsw-alias-label-secondary: #D8E1EA;
+}
+
+/* ── 轮尾与过程头的灰字：只提亮，不套底（2026-11-27）──────────────────────
+   作者点名的两处灰字，有一处在过程组之外：「已完成，用时 2 分 43 秒」。
+   它不在组里，组的底盖不到它（它属于哪个 kind，见本节末尾的核对结果）。
+
+   这里不给它套底：它是一整行操作栏、占满列宽，套底会变成一条横带压在板
+   中间；kimino 的参考图里也没有这个元素。提亮字色能解决可读性，零副作用。
+   两个 kind 都写了：写这条时我无法在 DOM 之外确定它属于哪个。事后按源码
+   核过——它是 turn-process（TurnProcessNodeView 渲染，turn-process.ts:334-340
+   以 groupTree:'turn' 建立，按 isAtOrOutside(node,'process') 判为组外），
+   所以真正生效的是 turn-process 那一支。turn-tail 是这一轮的动作区、
+   属另一行，留着无害，也能挡住日后 DSH 改结构。 */
+html[data-remielle-dan] :is(
+  [data-chat-flow-kind="turn-tail"],
+  [data-chat-flow-kind="turn-process"]
+) {
+  --dsw-alias-label-tertiary: #AEBECD;
+  --dsw-alias-label-secondary: #D8E1EA;
+}
+
 /* ── 输入区改色：文字 + 卡片 ─────────────────────────────────────────────
    文字当前是鲜红 #FF4D4D（2026-11-23 作者改定；此前是紫 #7B5AA3）。
    为什么挂在输入卡片而不是改 token：输入文字用的是全局正文色
@@ -766,80 +824,10 @@ a {
   }
 }
 
-/* ── 设置页：Remielle Dan 分区（0.1.7 建，0.2.0 加开关）──────────────────
-   这个分区由 client.js 通过官方槽 settings.section 注册，标记写在 JS 里；
-   样式按分工只放这里。颜色一律走主题 token，不写死——这样它跟界面一起变。
-   0.2.0 起顶部是真开关（主题外观），下面是只读的当前值；
-   「导出配置」仍是禁用占位。注意：关掉主题时这份样式表会被摘下，
-   所以分区在关闭态是**原生外观**、没有卡片底——那是刻意的，见 ARCHITECTURE 第十节。 */
-.remielle-set {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 18px 20px;
-  border-radius: var(--dsw-radius-lg, 14px);
-  background: var(--dsw-alias-bg-layer-1);
-  border: 1px solid var(--dsw-alias-border-l1);
-}
-.remielle-set-title {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--dsw-alias-label-primary);
-}
-.remielle-set-desc {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--dsw-alias-label-secondary);
-}
-.remielle-set-group {
-  margin-top: 6px;
-  font-size: 12px;
-  color: var(--dsw-alias-label-tertiary);
-}
-.remielle-set-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 7px 10px;
-  border-radius: 8px;
-  background: var(--dsw-alias-bg-layer-2);
-  font-size: 13px;
-}
-.remielle-set-k { color: var(--dsw-alias-label-secondary); }
-.remielle-set-v {
-  color: var(--dsw-alias-label-primary);
-  font: 12.5px/1.4 ui-monospace, Consolas, monospace;
-}
-.remielle-set-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 4px;
-}
-/* 分区里的按钮：默认可点（主题开关用它）；带 disabled 的才是占位——
-   看得见、点不动，也不给 hover 反馈，一眼就知道还没接上。 */
-.remielle-set-btn {
-  padding: 6px 14px;
-  border-radius: 8px;
-  border: 1px solid var(--dsw-alias-border-l2);
-  background: var(--dsw-alias-bg-layer-2);
-  color: var(--dsw-alias-label-primary);
-  font-size: 13px;
-  cursor: pointer;
-}
-.remielle-set-btn[disabled] {
-  color: var(--dsw-alias-label-secondary);
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-.remielle-set-note {
-  margin: 2px 0 0;
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--dsw-alias-label-tertiary);
-}
+/* 设置页「Remielle Dan」分区的样式**不在本文件**。
+   它在 zzz-remielle-dan/settings.css，由 client.js 以常驻样式表挂载，
+   不随主题开关卸载。原因：关闭态下 theme.css 被整个摘下，写在这里的分区样式
+   会一起失效，分区就成一屏裸文字。详见 ARCHITECTURE.md 第九、十节。 */
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   :root {

@@ -4,6 +4,157 @@
 已发布过 `0.1.6`，此后按语义化版本递进：改视觉/修 bug 走 `0.1.x`，
 新增能力走 `0.2.x`，破坏性变更走 `0.x.0` 并在此说明。
 
+## [0.3.2] — 2026-11-27
+
+过程行不再裸奔：一轮里的工具调用、搜索、思考读作**一整块圆角深底**，而这块底是半透明的。
+
+本次改动本身是**纯 CSS**：改 `patches.css` 后重新生成 `theme.css`，走
+`/remielle-dan/theme.css`（`no-store`），**刷新页面即生效、不必重启**。
+发版时随 0.3.2 一并升版本号，`client.js` 的 `BUILD_TAG` 同步更新。
+
+### 为什么改
+
+作者报聊天区的灰色辅助文字看不清，点名三处：「已完成」、「执行了命令、已读取文件、已调用工具等」、
+以及过程行本身。给的参照是 kimino 主题的截图：它把一轮里散落的过程行包进同一块圆角深底。
+作者要求照这个**形状**做，唯一的区别是**底不做实心**：要保留透明度，透的程度对齐他自己的
+用户消息气泡（也就是 `--remielle-bubble-alpha` 的 0.62）。
+
+### 做了什么
+
+只改了 `zzz-remielle-dan/patches.css` 一个源文件，另重新生成 `styles/theme.css`。
+
+- **过程组底**：选择器 `html[data-remielle-dan] [data-step-process]`。底色
+  `rgba(29, 51, 79, var(--remielle-bubble-alpha, 0.62))`、
+  `border: 1px solid rgba(103, 220, 231, 0.16)`、`border-radius: 14px`、`padding: 8px 12px`、
+  `box-sizing: border-box`，这些属性都带 `!important`。另在这个作用域内覆盖两个 token：
+  `--dsw-alias-label-tertiary: #AEBECD`、`--dsw-alias-label-secondary: #D8E1EA`（这两行不带 `!important`）。
+- **轮尾与过程头提亮**：选择器
+  `html[data-remielle-dan] :is([data-chat-flow-kind="turn-tail"], [data-chat-flow-kind="turn-process"])`，
+  只覆盖上面同样那两个 token，**不加底**。
+
+### 为什么这样落
+
+- 组的根是 `ChatGroupSeat.tsx:194` 的 `[data-step-process]`。该属性在源码里只出现一次，与
+  `data-step-process-body` / `-content` / `-icon` / `-chevron` 是不同的属性名，不会互相命中。
+- 组的 `.root` 原本只有 `min-width: 0`（`ChatGroupSeat.module.css:1-3`），没有底、边、圆角、内边距。
+- 分组与轮是否结束无关：`conversation-nodes/process-groups.ts:120-142` 的 `rebuild()` 把过程节点
+  收进 group 后 `emit(first.key, { kind: 'group' })`，`closed` 只是 group 数据的属性。
+- 「已完成，用时…」那一行**不在组里**：它由 `TurnProcessNodeView` 渲染、kind 是
+  `turn-process`，以 `groupTree: 'turn'` 建立（`turn-process.ts:334-340`），按
+  `isAtOrOutside(node,'process')` 被判为组外，所以组的底盖不到它。那一行改用提亮处理、不套底：
+  它是一整行操作栏，套底会成一条横带。规则里同时写了 `turn-tail`，那是冗余保险，不是这一行。
+- 未加 `overflow: hidden`：折叠体 `[data-step-process-body]` 自带
+  `max-height: min(400px,50vh)` + `overflow-y: auto`，滚动内容已被裁。
+- 未加 `backdrop-filter`：作者要透明，不要毛玻璃。
+
+### 兼容
+
+- `package.json`、`client.js`、`host.js` 一个字没动；版本号仍是 0.3.1。
+- 只有 `zzz-remielle-dan/patches.css` 与生成产物 `styles/theme.css` 变了。
+- 主题关闭态：这条规则随 `theme.css` 一起被摘掉，不需要额外处理。
+
+### 验证
+
+- `node scripts/build-theme-css.mjs`：生成 `styles/theme.css`，token 定义 396 条（含两遍），
+  总长 33,872 字符。
+- 静态：`theme.css` 花括号 42/42 配平；`[data-step-process]` 规则在产物里一处（另一处出现在
+  注释文本里）；`turn-tail` 三处（选择器一、注释两）。
+- 线上：`http://127.0.0.1:30973/remielle-dan/theme.css` 返回 **200、43,448 字节**，
+  两条新规则内容与源文件一致。
+- 真机观感：作者原话「我刷新过了。很好，效果我很满意。」——验收通过。
+
+## [0.3.1] — 2026-11-27
+
+设置页那一栏重做：**照官方设置页的视觉语言来**，并且主题关闭时也有样子。
+
+### 为什么改
+
+0.3.0 的分区样式并进 `theme.css`，主题一关就整份失效，那一栏只剩裸文字
+（标题 24px、正文全平铺、按钮像系统默认控件）。作者看过之后要求「做好看一点、贴合官方」。
+
+### 做了什么
+
+- 分区样式拆成独立的 `zzz-remielle-dan/settings.css`：`host.js` 直发
+  `/remielle-dan/settings.css`，`client.js` 挂**常驻** `<link>`，主题开还是关都在。
+  它只选择 `.remielle-set*`，不碰宿主全局选择器，所以「关掉主题 = 整页原生外观」没被破坏。
+- 结构换成官方设置页的「标题 + 引导语 + 卡片 + 行」：标题 16/24/500、卡片
+  `0.5px settings-card-stroke` + `radius-xl` + `padding 12/14`、行名 14/22、
+  行说明 12/18、按钮 36px 高 `radius-md`。规范出处写在 `settings.css` 顶部注释里。
+- 不再用「外观 · 开关」这类小标题，改成三张卡：主题外观 / 壁纸 / 当前值。
+- 主按钮（开启主题外观）用 `button-primary-fill`，其余只描边；禁用统一 `opacity .4`。
+- 拖放悬停改成给卡片换虚线边，不再给整栏套内阴影。
+- 用到的 token 逐个核对过：全部在 `skin-center/contracts/official-tokens-v1.json` 的 329 条里。
+
+### 兼容
+
+- `patches.css` 里那 95 行 `.remielle-set*` 整段删除。`theme.css` 从 34,087 字符降到 31,699，
+  不再含任何 `.remielle-set` 规则。
+- `package.json` 的 `files` 补上 `settings.css`（漏了打包就 404）。
+- 壁纸逻辑、主题开关四件套、聊天区视觉**一个字没动**。
+
+### 验证
+
+- 宿主冒烟 **32 项**、浏览器冒烟 **21 项**全过（新增两条断言：分区样式表常驻、
+  渲染用到的 14 个分区类在 `settings.css` 里都有规则）。
+- 静态：`node --check` 两侧通过；`settings.css` 花括号 24/24；`theme.css` 40/40。
+- **未做**：真机观感。需要作者重启后看两态。
+
+## [0.3.0] — 2026-11-27
+
+设置页可以换壁纸了。**新增能力，走 0.3.x。**
+
+### 用户看到什么
+
+- 设置 → Remielle Dan → 「外观 · 壁纸」：当前壁纸一行、「选择壁纸…」、「恢复默认壁纸」。
+  选一张本机图片（JPEG / PNG / WebP）点完当场生效，F5 仍在；恢复默认一键退回插画。
+- 也可以把图直接拖进这一块。桌面端的文件对话框没验证过，所以留了这条旁路。
+- 超过 2560 像素的图会自动缩小，并告诉你前后尺寸
+  （如 `3840×2160 3.2 MB → 2560×1440 780 KB`）。
+- 关闭主题外观时这一组只显示一行「先开启主题外观才能更换壁纸」，按钮不渲染。
+
+### 图存在哪
+
+`<DSH_HOME>/remielle-dan/wallpaper.<ext>` 与 `wallpaper.json`。不写插件目录、不进 git。
+本机是 `D:\DSH\home\remielle-dan\`（`~/.dsh` 是它的 Junction）。
+
+理由：插件目录属于程序，升级会整体替换；用户数据必须放用户那边。
+生态里的先例是 mylife 的 `~/.dsh/mylife/` 与记忆系统的 `~/.dsh/dsh-memento/`。
+
+### 宿主半边
+
+- 新增 `/remielle-dan/wallpaper`：GET 读状态、POST 换图、DELETE 恢复默认，一条 exact route。
+- `/remielle-dan/art.jpg` 改成动态：用户图优先，没有就发默认插画。
+  自定义图 `no-cache` + ETag（命中回 304），默认图仍是 `max-age=3600`。
+- 上传不校验 `Content-Type`（Electron IPC 桥接是否保留该 header 未验证），
+  改用 magic bytes 判真实类型；请求体 28MB、解码后 20MB 两道上限。
+- 超限不 `destroy()`，把流读完再回 413：destroy 会把 `res` 一起废掉，前端只能看到网络错误。
+- `findWallpaper()` 在 json 缺失或它指的文件不在时，用 `readdir` 兜底认
+  `wallpaper.jpg|png|webp`，所以手工把图拷进目录也能生效。
+
+### 浏览器半边
+
+- 背景层的图源改成 CSS 变量 `--remielle-bg-image`，fallback 是默认插画。
+  `createThemeRuntime` 新增 `bgImage` / `applyBgImage()` / `setBgImage()`；
+  **`attach()` 末尾补一次 `applyBgImage()`**，否则关掉主题再开，用户图会丢。
+- 缩图三条判据：不超门槛就原样上传；超像素缩到 2560；像素够但文件重只换编码。
+  2560 与 q0.86 取自 `jeweis/dsh-skin-lab` 的 `src/shrink.js`。
+- 壁纸的 `storage` 监听放在设置页组件里，不放 `apply()`：换图要同时改外观与那行 UI。
+- 自报新增 `wallpaper: { custom, bytes, name }`（不含 `dir`）。
+
+### 修掉的 bug
+
+- 清理旧壁纸文件时把刚写好的 `.tmp` 一起删了，`rename` 报 ENOENT。
+  冒烟测试抓到，是本次唯一一个真 bug。
+
+### 验证
+
+- 宿主半边：临时假 `webServer` + 真 HTTP，**32 项断言全过**
+  （默认态、上传、落盘、换格式、ETag/304、坏数据、DELETE、手工丢图、405）。
+- 浏览器半边：假 DOM + 假 React，**18 项断言全过**
+  （含「关掉主题再开，自定义壁纸仍在」这条）。
+- 静态：`node --check` 两侧通过；`theme.css` 重新生成，花括号 55/55，`.remielle-set-file` 落地。
+- **未做**：真机观感、桌面端文件对话框、Electron 大 body 的实际承载。需要作者重启后看一眼。
+
 ## [0.2.1] — 2026-11-25
 
 三处向 kimino 靠齐：**形照搬、色不改、不学毛玻璃**。

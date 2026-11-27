@@ -49,27 +49,32 @@ profile 的 package.json
         │
         ▼  重启时
   宿主 host.js → apply(ctx)
-        │   ctx.webServer.register 注册三条 exact 路由：
-        │     /remielle-dan/theme.css、/remielle-dan/art.jpg、
+        │   ctx.webServer.register 注册五条 exact 路由：
+        │     /remielle-dan/theme.css、/remielle-dan/settings.css（分区样式，常驻）、
+        │     /remielle-dan/art.jpg（当前壁纸）、
+        │     /remielle-dan/wallpaper（GET/POST/DELETE 换壁纸）、
         │     /remielle-dan/report（前端自报，写 .client-report.log）
         │   ctx.effect(() => dispose) 登记销毁
         ▼
   浏览器加载 client.js → factory → apply(ctx)
         │   0. 读 localStorage['remielle-dan:enabled']（0.2.0 起）
-        │   1. <html> 打 data-remielle-dan
-        │   2. <link rel=stylesheet href=/remielle-dan/theme.css>
-        │   3. <style> 背景层的基础规则
-        │   4. <div id=remielle-dan-bg>
-        │   5. 向官方设置页注册 settings.section 分区（id remielle-dan）
+        │   ├─ 开 → 1. <html> 打 data-remielle-dan
+        │   │        2. <link rel=stylesheet href=/remielle-dan/theme.css>
+        │   │        3. <style> 背景层的基础规则
+        │   │        4. <div id=remielle-dan-bg>
+        │   ├─ 不论开关 → 5. 挂常驻 <link href=/remielle-dan/settings.css>（0.3.1）
+        │   │              它只选择 .remielle-set*，摘主题样式表时不动它
+        │   └─ 不论开关 → 6. 向官方设置页注册 settings.section 分区（id remielle-dan）
         ▼
   样式生效
 
-第 0 步决定第 1–4 步做不做：存的是「关」就一件都不建，界面直接是原生的。
-第 1–4 步由设置页那个开关统一装卸，见第十节。
+第 0 步只决定第 1–4 步做不做：存的是「关」就一件都不建，界面直接是原生的。
+第 1–4 步由设置页那个开关统一装卸，见第十节；第 5、6 步与开关无关。
 ```
 
-**副作用都挂在 `ctx.effect` 上**：0.2.0 起只留一条总销毁（`theme.dispose()`，内部把四件一起摘），
-另有自报定时器与跨窗口监听的销毁。禁用插件后页面能干净退回原生外观。
+**副作用都挂在 `ctx.effect` 上**：0.2.0 起主题只留一条总销毁（`theme.dispose()`，内部把四件一起摘），
+另有自报定时器、`storage` 监听、以及 0.3.1 那条常驻 `settings.css` 的 `<link>`。
+禁用插件后页面能干净退回原生外观，`<head>` 里不留残余。
 
 ## 四、背景层
 
@@ -78,9 +83,13 @@ profile 的 package.json
 ```
 <div id="remielle-dan-bg">   position: fixed; inset: 0; z-index: -1;
   background-image:
-      linear-gradient(遮罩),        ← 写在前的在上层
-      url(/remielle-dan/art.jpg);
+      linear-gradient(遮罩),                    ← 写在前的在上层
+      var(--remielle-bg-image, url(/remielle-dan/art.jpg));
 ```
+
+第二层从 0.3.0 起是变量：换壁纸只改这个变量（写在背景层的 inline style 上，
+优先级压过 BASE_CSS 里的这条规则），渐变与位置尺寸仍归 CSS 管。
+变量没定义时 fallback 就是默认插画，所以没换过壁纸时行为与 0.2.1 一致。
 
 同时 `html` 与 `body` 的 `background-color` / `background-image` 被强制 `transparent`，
 让这层能透出来。
@@ -205,6 +214,38 @@ html[data-remielle-dan] [data-chat-flow]:not([data-step-process-content]) {
 - 0.1.7 起上底的是内层 `[data-message-bubble]`（`UserContent.tsx:47`）；外层只在
   没有内层气泡时兜底，用 `:not(:has([data-message-bubble]))` 判。
 
+### 过程组的一层底（2026-11-27，作者要求）
+
+一轮里散落的过程行（运行命令 / 搜索文件内容 / 思考）原本直接浮在板上。作者报这些
+灰色辅助文字读不清，给的参照是 kimino：把整组过程行包进一块圆角深底。要求照做，
+唯一改动是底不做实心，透度对齐作者自己的用户消息气泡。
+
+```css
+html[data-remielle-dan] [data-step-process] {
+  background-color: rgba(29, 51, 79, var(--remielle-bubble-alpha, 0.62));
+  border: 1px solid rgba(103, 220, 231, 0.16);
+  border-radius: 14px;
+  padding: 8px 12px;
+  --dsw-alias-label-tertiary: #AEBECD;   /* 组内提亮，只在组内生效 */
+  --dsw-alias-label-secondary: #D8E1EA;
+}
+```
+
+- **落点**：`ChatGroupSeat.tsx:194` 的 `.root`。该属性源码里只出现一次，与
+  `-body` / `-content` / `-icon` / `-chevron` 是不同的属性名。
+- **与「逐节点加背景」的区别要说清**：那条作废的路线是给**兄弟节点**逐个加背景，
+  拿背景去拼「一轮」的形状，而一轮在 DOM 里没有容器，所以必然拼成一摞卡片。
+  这里加底的对象是**真实存在的祖先容器**，成员是它的后代。不是拼，是托。
+- **为什么不用 `data-step-process-content`**：那是内层内容层，会漏掉标题行，而且它带
+  `data-chat-flow`，会被上面「把 `[data-chat-flow]` 压平」那条清掉。
+- **为什么「已完成，用时…」不套底**：那行不在组里。它由 `TurnProcessNodeView` 渲染，
+  kind 是 `turn-process`，以 `groupTree: 'turn'` 建立（`turn-process.ts:334-340`），
+  按 `isAtOrOutside(node,'process')` 被判为组外，于是成为 `.column` 下的独立行。
+  它是一整行操作栏，套底会成一条横带；改为只提亮 `turn-process` 内的两个 token。
+  规则里一并写了 `turn-tail`，那是冗余保险，不是这一行。
+- 未加 `overflow: hidden`：折叠体 `[data-step-process-body]` 自带
+  `max-height: min(400px,50vh)` + `overflow-y: auto`，滚动内容已被裁。未加 `backdrop-filter`。
+
 ### 已经作废的路线（不要再捡回来）
 
 - **逐节点加背景**：结果是一摞卡片。
@@ -279,8 +320,16 @@ ctx.slots.inject('settings.section', () => ctx.slots.register({
 
 ### 样式放在哪
 
-分区的样式类 `.remielle-set*` 全部写在 `patches.css`，`client.js` 只写结构。
-两个原因：样式仍旧归生成产物管（改源 → 跑生成脚本）；也不把一大段 CSS 塞进 JS。
+分区的样式类 `.remielle-set*` 写在 **`zzz-remielle-dan/settings.css`**，`client.js` 只写结构。
+它**不走生成脚本**（用不到 `skin.css` 的 token 块），由 `host.js` 直发（`/remielle-dan/settings.css`），
+`client.js` 在 `apply()` 里挂一条**常驻** `<link>`：主题开还是关，这条 link 都在。
+
+为什么不像别的样式那样并进 `theme.css`：关闭态下 `theme.css` 会被整个摘掉，写在那里面的
+分区样式跟着失效，分区就成了一屏裸文字（0.3.0 及之前就是这样）。这条 link 只选择
+`.remielle-set*`、不碰宿主全局，所以「关掉主题 = 整页原生外观」没有被破坏，只是分区自己还站着。
+
+颜色仍然全部走 `--dsw-alias-*`：开启态跟主题 token 走，关闭态跟宿主 token 走，同一份样式两态通用。
+每个 token 都在 `skin-center/contracts/official-tokens-v1.json` 的 329 条里，不写死色值。
 
 ### 依据
 
@@ -329,13 +378,18 @@ ctx.slots.inject('settings.section', () => ctx.slots.register({
 
 ### 关闭态的分区长什么样
 
-关掉之后 `theme.css` 被摘掉，`.remielle-set*` 那套样式也就没了，分区会以**原生元素**显示：
-标题、说明、状态行、按钮、版本号，只是没有卡片底与行距。
+0.3.1 起它**有自己的样式**：`settings.css` 常驻，卡片、行、按钮、排版都在，只是配色换成宿主值。
+0.3.0 及之前是刻意的裸样式（那时分区样式并进 `theme.css`，关掉就一起没了）；
+作者看过之后要求改掉，于是 0.3.1 把它拆成独立样式表。
 
-这是刻意的取舍：分区注册与样式解耦，所以**开关本身永远点得动**——
-它不会把开回主题的那把钥匙一起锁在里面。代价是关闭态那一栏看起来就是普通设置项。
+**视觉规范照抄官方设置页**（数值都在 `settings.css` 顶部注释里标了出处）：
+标题 16/24/500、引导语 14/22 tertiary、卡片 `0.5px settings-card-stroke` + `radius-xl` +
+`padding 12/14`、行名 14/22 primary、行说明 12/18 tertiary、按钮 36px 高 `radius-md`
+（主按钮 `button-primary-fill`，次按钮只描边）、禁用 `opacity 0.4`。
 
-关闭态还**隐藏**了「三行当前值」。那三个数是渲染时现读计算样式得到的，主题一关就全退到
+分区注册与样式仍然解耦：**开关本身永远点得动**，它不会把开回主题的那把钥匙一起锁在里面。
+
+关闭态仍然**不渲染**「当前值」那张卡。那三个数是渲染时现读计算样式得到的，主题一关就全退到
 写死的兜底值（例如气泡透明度仍显示 62%，而气泡根本不存在）。宁可不显示，也不给错数字。
 
 ### 为什么不走 configForms，也不靠禁用插件
@@ -357,4 +411,103 @@ ctx.slots.inject('settings.section', () => ctx.slots.register({
 `.client-report.log` 里能直接看到 `themeEnabled` 的两次翻转，不必只靠肉眼。
 那条自报**延后 400ms 才采**：插入 `<link>` 到样式生效是异步的，立刻读完会拿到应用前的值
 （veil 变量还是「未定义」、正文区还是原生底色），日志就会把「开了」记成「没生效」。
+
+## 十一、壁纸可替换（0.3.0）
+
+### 为什么落在数据目录
+
+用户换的图写进 `<DSH_HOME>/remielle-dan/`，不写插件目录。三条理由：
+
+1. **插件目录属于程序。** 本机是 `link:` 安装所以可写；别人用 pnpm 装，插件落在
+   `node_modules/.pnpm/dsh-remielle-dan@<版本>/` 里，升一个版本就换目录。写在里面的
+   用户图会跟着旧版本一起消失。
+2. **发布形态下更糟。** 插件的静态文件在包管理器的 store 里有硬链接，往那儿写用户数据
+   等于把「程序目录」和「数据目录」混在一起，升级、重装、清缓存都可能吞掉它。
+3. **生态里已有两个先例。** mylife 用 `~/.dsh/mylife/mylife.db`，记忆系统用
+   `~/.dsh/dsh-memento/`。用户数据放 DSH 主目录是这里的通行做法。
+
+解析与 `记忆系统/index.mjs:4080-4086` 同口径：`ctx.loader.baseDir` →
+`process.env.DSH_HOME` → `~/.dsh`。本机 `~/.dsh` 是指向 `D:\DSH\home` 的 Junction，
+三层指向同一物理目录，任一层通就够。
+
+### 存储布局与三条方法
+
+```
+<DSH_HOME>/remielle-dan/
+  wallpaper.<ext>      ext ∈ jpg | png | webp
+  wallpaper.json       { name, bytes, width, height, ext, updatedAt }
+```
+
+| 方法 | 路径 | 作用 |
+|---|---|---|
+| GET | `/remielle-dan/wallpaper` | 读状态：`{ custom, src, name, bytes, width, height, updatedAt, dir }` |
+| POST | 同上 | body `{ dataUrl, name, width, height }`，落盘后回同样的状态 |
+| DELETE | 同上 | 清掉用户图，回默认态 |
+
+`src` 在自定义时带 `?v=<updatedAt 毫秒>`：换图后 URL 变化，绕开浏览器对同 URL 的复用。
+`dir` 只给设置页显示路径用，**不进自报日志**。
+
+### 三处容易写错的地方
+
+1. **超限不能 `req.destroy()`。** destroy 会把 `res` 一起废掉，前端只看到网络错误，
+   看不到那句「图片太大」。正确姿势是标记 `tooLarge`、继续把流入读完、在 `end` 里回 413。
+2. **不校验 `Content-Type`。** 桌面端走 Electron 的 IPC 桥接，该 header 是否原样保留
+   未经验证。解析不出合法 `dataUrl` 就 400，堵的是同一个口，依赖却少一层。
+3. **清理旧文件时要保住刚写的 `.tmp`。** 第一版忘了这一步，清理把临时文件一起删了，
+   `rename` 直接 ENOENT。冒烟测试抓到，是 0.3.0 唯一一个真 bug。
+
+### 缩图：三条判据
+
+| 条件 | 动作 |
+|---|---|
+| `max(w,h) ≤ 2560` 且 `file.size ≤ 8MB` | 原样上传，字节与格式都不动 |
+| `max(w,h) > 2560` | 等比缩到最长边 2560，JPEG q0.86，先填 `#071321` |
+| `max(w,h) ≤ 2560` 但 `file.size > 8MB` | 保持原尺寸重编码为 JPEG q0.86 |
+
+像素与文件大小是两件事：单纯文件大而像素不多时不该缩小（白丢画质），只需换编码。
+垫底色因为 JPEG 没有 alpha，canvas 留空会编成黑块。
+2560 与 0.86 取自 `jeweis/dsh-skin-lab` 的 `src/shrink.js`；它那套 8 级降级阶梯不抄——
+那是为 localStorage 的 5MB 预算设计的，落盘没有这个预算。
+
+### 拖放是备用通道
+
+桌面端 `<input type="file">` 能否拉起系统对话框没有实证，所以壁纸那块同时接了
+`dragOver` / `drop`。三个处理器都 `preventDefault()`：dragOver 不拦就收不到 drop，
+顺带挡住 Electron「文件拖进窗口就导航过去」的默认行为。
+
+### 状态住在哪
+
+- **外观**（背景层的图源）：`createThemeRuntime` 的闭包变量 `bgImage`，
+  `attach()` 末尾必须补一次 `applyBgImage()`。漏了这句，「关掉主题再开，壁纸回到默认插画」。
+- **UI**（当前壁纸那一行、按钮禁用态）：设置页组件的 `useState`。
+- **`setBgImage` 不 `emit()`。** runtime 只管外观；它再存一份 meta，两个来源必然打架。
+- **跨窗口的 `storage` 监听放在组件里**，不放 `apply()`：换图要同时更新外观与 UI，
+  而 UI 在组件 state 里，`apply()` 够不着。
+
+### 关闭态
+
+壁纸层根本不存在，所以这一组只渲染一行「先开启主题外观才能更换壁纸」，按钮与拖放区都不渲染。
+否则点下去没反应，看起来像坏了。
+
+### 手工丢图也认
+
+`findWallpaper()` 先看 `wallpaper.json`；没有或文件缺失时 `readdir` 认
+`wallpaper.jpg|png|webp`。所以用户把图直接拷进目录、或者把 json 删了，刷新后仍能被认出——
+只是名字退成文件名、宽高未知。
+
+### 缓存
+
+| 情形 | Content-Type | 缓存 |
+|---|---|---|
+| 自定义 | 按真实 ext | `no-cache` + `ETag`，命中 `If-None-Match` 回 304 |
+| 默认 | `image/jpeg` | `public, max-age=3600`（0.2.1 的原样） |
+
+自定义图不用 `no-store`：本机环回无所谓，但从 `dsh-remote-web-ui` 远程访问时
+每次刷新重传几 MB 是实打实的开销，条件请求走 304 省掉。
+
+### 与 `dsh-wallpaper-engine` 的关系
+
+那个插件走 DSH 的装饰层，本插件自己铺 `#remielle-dan-bg`（`z-index:-1`），
+两者互不知道对方。同时装可能出现两层壁纸。已知边界，本版不处理。
+
 

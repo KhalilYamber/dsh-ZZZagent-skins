@@ -1,0 +1,201 @@
+/* Remielle Dan —— 设置页分区的独立样式。
+ *
+ * 为什么单独一份、而且不随主题开关卸载：
+ * 分区在「主题关闭」时仍然存在（注册与样式解耦），但那时 theme.css 被整个摘下，
+ * 写在 patches.css 里的 .remielle-set* 会一起失效，分区就变成一屏裸文字。
+ * 这份样式只管自己的类，不碰宿主任何全局选择器，所以关闭态下整页仍是原生外观，
+ * 只有这一栏保留卡片与排版。
+ *
+ * 视觉语言照抄官方设置页（app.asar 内）：
+ *   ModelsSection.module.css   —— 分区标题 / 引导语 / 卡片 / 主次按钮 / 错误行
+ *   AccountSection.module.css  —— 卡内行与 card 的底色、描边
+ *   PreferenceRow.module.css   —— 行名 14/22 与说明 12/18
+ *   SettingsRoot.module.css    —— 面板本身已有 24px 内边距，这栏不再自己加边距
+ * 颜色一律用 --dsw-alias-*，全部出现在 skin-center 的 official-tokens-v1.json 里，
+ * 不写死色值：开启态跟主题走，关闭态跟宿主走。
+ */
+
+.remielle-set {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 720px;
+  color: var(--dsw-alias-label-primary);
+}
+
+/* 分区标题：与官方设置分区同规格（ModelsSection 的 .title） */
+.remielle-set-title {
+  margin: 0;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+  color: var(--dsw-alias-label-primary);
+}
+
+/* 分区级引导语 */
+.remielle-set-intro {
+  margin: 0;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* 一张设置卡：与账号页 / 模型页的 rowCard 同一材质 */
+.remielle-set-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 0.5px solid var(--dsw-alias-settings-card-stroke);
+  border-radius: var(--dsw-radius-xl);
+  background: var(--dsw-alias-settings-card-fill);
+}
+
+/* 卡内一行：左文本列 + 右侧控件 */
+.remielle-set-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 32px;
+}
+
+.remielle-set-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* 行名 */
+.remielle-set-k {
+  font-size: 14px;
+  line-height: 22px;
+  font-weight: 400;
+  color: var(--dsw-alias-label-primary);
+}
+
+/* 行说明 / 行状态 */
+.remielle-set-v {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+  overflow-wrap: anywhere;
+}
+
+/* 右侧只读值（没有控件的行用它） */
+.remielle-set-value {
+  flex: none;
+  max-width: 55%;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--dsw-alias-label-secondary);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+/* 多行卡片里行与行之间的细线 */
+.remielle-set-row + .remielle-set-row {
+  padding-top: 10px;
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+.remielle-set-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 按钮：官方 36px 胶囊。主按钮填 button-primary，次按钮只描边。 */
+.remielle-set-btn,
+.remielle-set-file {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  padding: 0 14px;
+  border: 0.5px solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-md);
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 14px;
+  line-height: 22px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.remielle-set-btn.is-primary {
+  border-color: transparent;
+  background: var(--dsw-alias-button-primary-fill);
+  color: var(--dsw-alias-label-primary-foreground);
+  font-weight: 500;
+}
+
+@media (hover: hover) {
+  .remielle-set-btn:not([disabled]):hover,
+  .remielle-set-file[data-busy="false"]:hover {
+    background: var(--dsw-alias-interactive-bg-hover-solid);
+  }
+
+  .remielle-set-btn.is-primary:not([disabled]):hover {
+    background: var(--dsw-alias-button-primary-hover);
+  }
+}
+
+.remielle-set-btn[disabled] {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.remielle-set-btn:focus-visible,
+.remielle-set-file:focus-within {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+}
+
+/* 「选择壁纸…」是 label 扮的按钮：原生 file input 藏起来，靠 label 的隐式激活 */
+.remielle-set-file input {
+  display: none;
+}
+
+.remielle-set-file[data-busy="true"] {
+  opacity: 0.4;
+  cursor: progress;
+  pointer-events: none;
+}
+
+/* 卡内提示行 */
+.remielle-set-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+  overflow-wrap: anywhere;
+}
+
+/* 出错：官方 .error 用的是 state-error-primary */
+.remielle-set-error {
+  margin: 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-state-error-primary);
+  overflow-wrap: anywhere;
+}
+
+/* 页脚版本号 */
+.remielle-set-foot {
+  margin: 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* 拖放悬停：整栏是落点，用虚线框提示，不给界面加一层实底 */
+.remielle-set.is-drop .remielle-set-card {
+  border-color: var(--dsw-alias-state-business-primary);
+  border-style: dashed;
+}

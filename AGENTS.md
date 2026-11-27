@@ -12,17 +12,24 @@ package.json            插件清单。name=包名=client 模块 id；main=host.
                         exports 必须带 "./client"；dsh.client.immediately=true
 cordis.patch.yml        bundle patch：insert 一行 {id, name}
 host.js                 宿主半边。export default { inject:['webServer'], apply(ctx) }
-                        三条路由：/remielle-dan/theme.css、/remielle-dan/art.jpg、
+                        五条路由：/remielle-dan/theme.css、/remielle-dan/settings.css（分区样式，常驻）、
+                        /remielle-dan/art.jpg（当前壁纸）、
+                        /remielle-dan/wallpaper（GET/POST/DELETE 换壁纸）、
                         /remielle-dan/report（前端自报，写 .client-report.log）
+                        换上的壁纸落在 <DSH_HOME>/remielle-dan/，**不写仓库**
 client.js               浏览器半边。window.__ModuleLoader__.load({id, factory})，
                         最后 exports.apply / exports.inject / return module.exports。
-                        除背景层外，向官方设置页注册 Remielle Dan 分区（分区里有主题开关）。
+                        除背景层外，向官方设置页注册 Remielle Dan 分区（0.2.0 起有主题开关，
+                        0.3.0 起有壁纸组，0.3.1 起分区样式单独常驻）。
                         **不碰聊天区 DOM**：不插节点、不挂 class、不装观察器（0.1.6 起）
 styles/theme.css        ★ 运行时样式，**生成产物**（勿手改）。token 块 + body 规则 + patches 全文
 scripts/build-theme-css.mjs   生成 theme.css 的脚本（改完源文件跑它）
+scripts/smoke-host-wallpaper.mjs    冒烟：宿主半边（假 webServer + 真 HTTP，32 项）
+scripts/smoke-client-wallpaper.mjs  冒烟：浏览器半边（假 DOM + 假 React，21 项）
 zzz-remielle-dan/       源文件与素材（不是可安装皮肤）
   skin.css               token 源（生成 theme.css 用）
   patches.css            DOM 质感源
+  settings.css           设置页分区样式；**常驻**，由 host.js 直发，不随主题开关卸载
   assets/                背景图；host.js 直接读这里，别挪
 
 LICENSE / NOTICE        许可与授权溯源
@@ -43,6 +50,8 @@ README / AGENTS / ARCHITECTURE / CHANGELOG
   `[data-chat-flow]:not([data-step-process-content])`，否则每个过程组各长一圈框。
 - **不要重复**：逐节点背景 band、`margin: 0` 强压、DOM 包裹 React 节点、
   给每轮画绝对定位的纸。四条都试过，代价写在 `ARCHITECTURE.md` 第八节。
+  注意区分：2026-11-27 起过程组有一块半透明圆角底（挂在 `[data-step-process]` 上），
+  那是给**真容器**加底，不是拿节点背景去拼一轮的形状，两者不是一回事。
 - 历史过程：`SNAPSHOT-一轮一纸-20261123.md`（已解决，留作参照）。
 - 未单独验收：`/plan` 之后的用户气泡（steering / pending 回显）。
 
@@ -73,11 +82,12 @@ README / AGENTS / ARCHITECTURE / CHANGELOG
    关掉时把**四件一起摘**：`html` 上的属性、`theme.css` 的 `<link>`、`BASE_CSS` 的 `<style>`、
    `#remielle-dan-bg`。只摘一部分会「半脱」，原因写在 `ARCHITECTURE.md` 第十节；
    那条边界不要绕过（比如在主题关闭态下再挂一条全局规则）。
-6. **设置页分区的样式类 `.remielle-set*` 写在 `patches.css`，不要写进 `client.js`。**
-   `client.js` 只写结构（`require('react')` + `createElement`），颜色走主题 token
-   （`--dsw-alias-bg-layer-1/2`、`--dsw-alias-border-l1/l2`、
-   `--dsw-alias-label-primary/secondary/tertiary`）。
-   样式留在源文件里，才能跟着生成脚本走、改了什么有据可查。
+6. **设置页分区的样式类 `.remielle-set*` 写在 `zzz-remielle-dan/settings.css`，不要写进
+   `client.js`，也不要并回 `patches.css`。** `client.js` 只写结构（`require('react')` +
+   `createElement`），颜色走主题 token（`--dsw-alias-*`，取值范围见
+   `skin-center/contracts/official-tokens-v1.json`）。
+   这份样式**常驻**、不随主题开关卸载：关闭态下 `theme.css` 被整个摘掉，分区若没有自己的样式
+   就只剩裸文字。它只选择 `.remielle-set*`，不碰宿主全局选择器，所以关掉主题整页仍是原生外观。
 7. **墨色与填充成对改。** 本主题是暗色：`label-primary` 是浅墨，
    `label-primary-foreground` / `label-primary-inverted` 是深墨，`button-contrast-fill`
    是浅底。宿主把它们当「填充 ↔ 墨色」成对用（字标徽章、版本徽章、附件关闭按钮），
@@ -93,6 +103,7 @@ README / AGENTS / ARCHITECTURE / CHANGELOG
 | `--dsw-specific-input-major` | 输入卡底色的 token（`InputBar.module.css` 的 `.card` 读它） | 卡片底色回退成宿主值 |
 | `[class*="composerSeat"]` | 输入座位容器（上游皮肤就依赖这个类名片段） | 暗带相关规则失效 |
 | `[data-chat-flow]` | 消息流列（`ChatView.tsx:244` 的 `.column`）；**组内容层也带这个属性**（`ChatGroupSeat.tsx:202`，同元素有 `data-step-process-content`） | 板消失；若漏掉 `:not([data-step-process-content])`，每个过程组各长一圈框 |
+| `[data-step-process]` | 过程组的根（`ChatGroupSeat.tsx:194` 的 `.root`）；源码里只出现一次，与 `-body` / `-content` / `-icon` / `-chevron` 是不同的属性名，互不命中 | 过程组那层半透明圆角底消失，过程行与灰字回到裸奔状态 |
 | `data-phase` 三值 | `settling` / `hero` / `active`；新会话是 `hero` | 若按 `active` 限作用域，新会话里样式不生效 |
 | `[data-conversation-region="chat"]` | 正文区容器（`ConversationContent.tsx` 挂在 `.body` 上，包住滚动区与 composer 座位）；0.2.1 起只放 transparent；`stop-shortcut.ts` 依赖它 | 若被别的主题画上底，会与消息板叠成双层；不会崩 |
 | `[data-chat-flow-kind]` | 消息节点的种类属性（`ChatNodeSeat.tsx`） | 用户气泡选择器不命中 |
@@ -129,13 +140,21 @@ README / AGENTS / ARCHITECTURE / CHANGELOG
 
 - **视觉微调**（颜色、遮罩、透明度）→ 改 `zzz-remielle-dan/skin.css` 或 `patches.css`，
   再跑 `node scripts/build-theme-css.mjs`；`client.js` 的 `BASE_CSS` 只放背景层相关。
-- **换背景图** → 替换 `zzz-remielle-dan/assets/remielle-dan-art.jpg`，文件名不变就不用改代码。
+- **换默认背景图** → 替换 `zzz-remielle-dan/assets/remielle-dan-art.jpg`，文件名不变就不用改代码。
+  用户换的那张走设置页，落在 `<DSH_HOME>/remielle-dan/`，**不要写进仓库**（那是用户数据，
+  且升级会整体替换插件目录）。
 - **改结构**（换行位置、加新层、加动画）→ 先读 `ARCHITECTURE.md` 的「层叠风险」一节。
 
 ## 验证方式
 
-插件没有自动化测试。每条改动按三步验：
+插件没有端到端自动化测试；0.3.0 起有两个能复跑的冒烟脚本，但它们证明不了观感。
+每条改动按三步验：
 
+0. **冒烟（可选，几秒钟）**：`node scripts/smoke-host-wallpaper.mjs`（32 项）与
+   `node scripts/smoke-client-wallpaper.mjs`（21 项）。前者起假 `webServer` + 真 HTTP，
+   落盘指向临时 `DSH_HOME`，不碰真实数据；后者用假 DOM + 假 React，覆盖
+   「关掉主题再开，壁纸仍在」与「分区样式表常驻、主题样式表被摘」。
+   只证明逻辑没断，不证明好看。
 1. **静态**：`package.json` 可解析；`host.js` / `client.js` 过 `node --check`（复制成 `.mjs`）；
    `styles/theme.css` 花括号配平；`host.js` 依赖的文件都在。
 2. **装载**：只改样式（`zzz-remielle-dan/*.css` → 重新生成 `styles/theme.css`）时，
@@ -146,16 +165,18 @@ README / AGENTS / ARCHITECTURE / CHANGELOG
    或「有壁纸没底色」那种半脱；再点回来应当完整复原。
    消息区另看一眼：用户消息有气泡、AI 一轮读作一整片（行间不露亮缝）、
    对话板有 1px 青边与圆角 20，且**背景不模糊**（隔着板看壁纸是清晰的）、
-   过程组内部不出现第二层框。
+   过程组是一整块半透明圆角底（2026-11-27 起），不是板套板。
 
 第 3 步只能人眼。观感问题不要靠猜，先要现象（报错文本 / 截图 / 哪个区域不对）。
 
 ## 不要做的事
 
 - 不要给 DSH 本体打补丁，也不要改 `app.asar` 里的东西。
-- 不要在 `host.js` 里做重活（它只该发文件）。
+- 不要在 `host.js` 里做重活：它只该发文件，外加一件「把用户选的那张图落盘」。
+  不要在里面塞会话、缓存、定时任务这类东西。
 - 不要往 `client.js` 里塞业务逻辑（它只该改外观）。
 - 不要用逐个节点的背景去拼一整轮气泡，结果一定是一摞卡片。
+  （给过程组的**真容器**加一块底不算这一类，见「消息区的形状」。）
 - 不要用 `margin: 0` 强行压平聊天原生间距，那会丢掉 DSH 自己的 4 / 12 / 16px。
 - 不要用 DOM 包裹 React 聊天节点，也不要在聊天区加容器层：流式更新时 React 的插入/删除会错位。
   一轮的形状由面板的底给出，不需要再画框。
